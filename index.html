@@ -4,6 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>K-Bandit Simulator</title>
+
+    <!-- Google Analytics (GA4) - REPLACE 'YOUR_GA4_MEASUREMENT_ID' -->
+    <script>
+      // Define default consent settings BEFORE loading gtag or configuring GA4
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+
+      gtag('consent', 'default', {
+        'analytics_storage': 'denied', // Deny analytics tracking by default
+        'ad_storage': 'denied',        // Other common consent types
+        'ad_user_data': 'denied',
+        'ad_personalization': 'denied',
+        'wait_for_update': 500        // Milliseconds to wait for consent update before sending initial hits
+      });
+
+      // Optional: Pass through any URL parameters related to ads (if applicable)
+      // gtag('set', 'url_passthrough', true);
+
+      // Load gtag.js asynchronously
+      (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtag.start':
+      new Date().getTime(),event:'gtag.js'});var f=d.getElementsByTagName(s)[0],
+      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+      'https://www.googletagmanager.com/gtag/js?id='+i+dl;f.parentNode.insertBefore(j,f);
+      })(window,document,'script','dataLayer','G-45CCWT6XS1'); // <<< REPLACE THIS ID!
+
+      // Initial configuration call (will respect default consent)
+      gtag('js', new Date());
+      gtag('config', 'G-45CCWT6XS1'); // <<< REPLACE THIS ID!
+    </script>
+    <!-- End Google Analytics -->
+
     <style>
         :root {
             /* Light Mode Defaults */
@@ -41,6 +72,8 @@
             color: var(--dark);
             min-height: 100vh;
             padding: 2rem;
+            /* Add padding-bottom to prevent content being hidden by banner */
+            padding-bottom: 8rem; /* Adjust as needed based on banner height */
             transition: padding 0.2s ease-in-out, background-color 0.3s ease, color 0.3s ease;
         }
 
@@ -396,19 +429,76 @@
         body.dark-mode .log-result { color: var(--dark-text-secondary); }
 
 
+        /* --- Cookie Consent Banner Styles --- */
+        #cookie-consent-banner {
+            display: none; /* Hidden by default */
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: var(--dark-card, #334155); /* Default for if vars fail */
+            color: var(--dark-text, #f8fafc);
+            padding: 15px 20px;
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+            font-size: 0.9rem;
+            /* Use flexbox for alignment */
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap; /* Allow wrapping on small screens */
+            gap: 15px; /* Space between text and buttons */
+        }
+
+        /* Use light mode colors when light mode is active */
+        body:not(.dark-mode) #cookie-consent-banner {
+             background-color: var(--light-gray); /* Light gray for light mode */
+             color: var(--dark); /* Dark text for light mode */
+        }
+
+        #cookie-consent-banner button {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            min-width: 80px; /* Ensure buttons have some width */
+            margin-left: 5px; /* Space buttons slightly */
+        }
+
+        /* Adjust button colors in light mode */
+         body:not(.dark-mode) #consent-decline-btn {
+             background-color: #d1d5db; /* Slightly darker gray for light decline */
+             color: var(--dark);
+         }
+         body:not(.dark-mode) #consent-decline-btn:hover:not(:disabled) {
+              background-color: #9ca3af;
+         }
+
+
         /* --- Media Queries for Responsiveness --- */
         @media (max-width: 768px) { /* Tablet and smaller */
             .charts-container, .settings-grid { grid-template-columns: 1fr; }
              h1 { font-size: 2.2rem; }
              canvas { min-height: 200px; max-height: 250px; }
+             /* Adjust banner layout */
+             #cookie-consent-banner {
+                flex-direction: column;
+                align-items: flex-start; /* Align items to start */
+                text-align: center;
+             }
+             #cookie-consent-banner > div { /* Button container */
+                width: 100%;
+                display: flex;
+                justify-content: center;
+             }
         }
         @media (max-width: 576px) { /* Small mobile */
-            body { padding: 1rem; }
+            body { padding: 1rem; padding-bottom: 10rem; /* Extra space for banner */ }
             h1 { font-size: 1.8rem; }
             .settings-panel, .results-panel, .chart-card { padding: 1rem; }
             button { padding: 0.6rem 1.2rem; font-size: 0.9rem; }
             #theme-toggle-btn { font-size: 0.9rem; padding: 0.4rem 0.8rem !important; } /* Ensure padding override */
             canvas { min-height: 180px; max-height: 220px; }
+            #cookie-consent-banner button { width: 45%; margin: 5px 2.5%; } /* Make buttons stack better */
+
         }
     </style>
 </head>
@@ -507,9 +597,18 @@
              -->
         </div>
 
-        <!-- Download button removed -->
+    </div> <!-- End of .container -->
 
+    <!-- Cookie Consent Banner -->
+    <div id="cookie-consent-banner" style="display: none;"> <!-- Starts hidden -->
+        <span>This website uses cookies & analytics to understand user behavior and improve the simulator. By clicking "Accept", you consent to their use.</span>
+        <div>
+            <button id="consent-accept-btn" class="btn-primary">Accept</button>
+            <button id="consent-decline-btn" class="btn-secondary">Decline</button>
+        </div>
     </div>
+    <!-- End Cookie Consent Banner -->
+
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script>
@@ -518,9 +617,9 @@
             bandits: [], trueRewards: [], estimatedRewards: [], counts: [],
             totalReward: 0, totalPulls: 0, optimalActions: 0, cumulativeRegret: 0,
             rewardsHistory: [], actionsHistory: [], regretHistory: [],
-            rewardsChart: null, selectionChart: null, regretChart: null, // Added regret chart state
+            rewardsChart: null, selectionChart: null, regretChart: null,
             optimalBandit: -1, autoRunInterval: null, thompsonPriors: [],
-            isRunning: false // Flag to prevent overlapping operations
+            isRunning: false
         };
 
         // --- DOM Elements ---
@@ -542,19 +641,69 @@
         const cumulativeRegretDisplay = document.getElementById('cumulative-regret');
         const actionLog = document.getElementById('action-log');
         const themeToggleButton = document.getElementById('theme-toggle-btn');
-        // downloadButton variable removed
+        // downloadButton removed
 
         // --- Constants ---
         const MAX_LOG_ENTRIES = 200;
         const MAX_CHART_POINTS = 500;
-        const AUTO_RUN_INTERVAL_MS = 50; // Interval between pulls in auto-run
+        const AUTO_RUN_INTERVAL_MS = 50;
+        const CONSENT_KEY = 'kBanditCookieConsent'; // localStorage key for consent
+
 
         // --- Helper Functions ---
         function normalRandom(mean = 0, stdDev = 1) { let u = 0, v = 0; while (u === 0) u = Math.random(); while (v === 0) v = Math.random(); const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v); return z * stdDev + mean; }
         function gammaRandom(alpha, beta = 1) { if (alpha < 1) { return gammaRandom(alpha + 1, beta) * Math.pow(Math.random(), 1.0 / alpha); } const d = alpha - 1.0 / 3.0; const c = 1.0 / Math.sqrt(9.0 * d); let Z, V, U; while (true) { do { Z = normalRandom(0, 1); V = 1.0 + c * Z; } while (V <= 0.0); V = V * V * V; U = Math.random(); if (U < 1.0 - 0.0331 * (Z * Z) * (Z * Z)) { return (d * V) / beta; } if (Math.log(U) < 0.5 * Z * Z + d * (1.0 - V + Math.log(V))) { return (d * V) / beta; } } }
-        function betaRandom(alpha, beta) { const ga = gammaRandom(alpha, 1); const gb = gammaRandom(beta, 1); return (ga + gb === 0) ? 0.5 : ga / (ga + gb); } // Handle division by zero
-        function argmax(arr) { if (!arr || arr.length === 0) return -1; return arr.reduce((bestIndex, currentValue, currentIndex, array) => currentValue > array[bestIndex] ? currentIndex : bestIndex, 0); }
+        function betaRandom(alpha, beta) { const ga = gammaRandom(alpha, 1); const gb = gammaRandom(beta, 1); return (ga + gb === 0) ? 0.5 : ga / (ga + gb); }
+        function argmax(arr) { if (!arr || arr.length === 0) return -1; return arr.reduce((bestIndex, currentValue, currentIndex) => currentValue > arr[bestIndex] ? currentIndex : bestIndex, 0); }
         function debounce(func, wait) { let timeout; return function executedFunction(...args) { const later = () => { clearTimeout(timeout); func.apply(this, args); }; clearTimeout(timeout); timeout = setTimeout(later, wait); }; }
+
+
+        // --- Cookie Consent Logic ---
+        function showConsentBanner() {
+            const banner = document.getElementById('cookie-consent-banner');
+            if (banner) banner.style.display = 'flex';
+        }
+        function hideConsentBanner() {
+            const banner = document.getElementById('cookie-consent-banner');
+            if (banner) banner.style.display = 'none';
+        }
+        function handleConsentAccept() {
+            console.log("Consent Accepted");
+            localStorage.setItem(CONSENT_KEY, 'granted');
+            if (typeof gtag === 'function') {
+                gtag('consent', 'update', { 'analytics_storage': 'granted' });
+                 // Send an event indicating consent was given
+                 gtag('event', 'consent_granted', {'event_category': 'Consent'});
+            } else { console.warn("gtag function not found for consent update."); }
+            hideConsentBanner();
+        }
+        function handleConsentDecline() {
+            console.log("Consent Declined");
+            localStorage.setItem(CONSENT_KEY, 'denied');
+            if (typeof gtag === 'function') {
+                 gtag('consent', 'update', { 'analytics_storage': 'denied' });
+                 // Send an event indicating consent was denied
+                 gtag('event', 'consent_denied', {'event_category': 'Consent'});
+            } else { console.warn("gtag function not found for consent update."); }
+            hideConsentBanner();
+        }
+        function checkConsent() {
+            const consent = localStorage.getItem(CONSENT_KEY);
+            if (!consent) {
+                showConsentBanner();
+            } else if (consent === 'granted') {
+                console.log("Existing consent: Granted");
+                 if (typeof gtag === 'function') gtag('consent', 'update', { 'analytics_storage': 'granted' });
+            } else { // 'denied' or any other value treated as denied
+                console.log("Existing consent: Denied");
+                 if (typeof gtag === 'function') gtag('consent', 'update', { 'analytics_storage': 'denied' });
+            }
+            // Attach listeners AFTER checking, ensuring they are always present if banner exists
+            const acceptBtn = document.getElementById('consent-accept-btn');
+            const declineBtn = document.getElementById('consent-decline-btn');
+            if (acceptBtn) acceptBtn.addEventListener('click', handleConsentAccept);
+            if (declineBtn) declineBtn.addEventListener('click', handleConsentDecline);
+        }
 
 
         // --- Theme Toggle ---
@@ -572,9 +721,8 @@
                  const titleColor = computedStyle.getPropertyValue('--primary-dark').trim() || (isDark ? '#818cf8' : '#4f46e5');
 
                  [state.rewardsChart, state.selectionChart, state.regretChart].forEach(chart => {
-                     if (chart && chart.options && chart.options.scales) {
+                     if (chart?.options?.scales) { // Null check chart and scales
                          try {
-                             // Update common scale properties
                              Object.values(chart.options.scales).forEach(scale => {
                                  if (scale) {
                                      if (scale.grid) { scale.grid.color = gridColor; scale.grid.borderColor = gridColor; }
@@ -582,29 +730,31 @@
                                      if (scale.title) { scale.title.color = titleColor; }
                                  }
                              });
-                             // Update Legend
-                             if (chart.options.plugins?.legend?.labels) {
-                                 chart.options.plugins.legend.labels.color = labelColor;
-                             }
+                             if (chart.options.plugins?.legend?.labels) chart.options.plugins.legend.labels.color = labelColor;
                              chart.update('none');
-                         } catch (updateError) {
-                             console.error("Error updating individual chart theme:", updateError, chart.canvas.id);
-                         }
-                     } else if (chart) {
-                         // console.warn("Skipping theme update for chart, invalid state:", chart.canvas.id); // Can be noisy
+                         } catch (updateError) { console.error("Error updating chart theme:", updateError, chart.canvas?.id); }
                      }
                  });
-             } catch (themeError) {
-                 console.error("Error in updateChartThemes:", themeError);
-             }
+             } catch (themeError) { console.error("Error in updateChartThemes:", themeError); }
         }
-        themeToggleButton.addEventListener('click', () => { const newTheme = document.body.classList.contains('dark-mode') ? 'light' : 'dark'; localStorage.setItem('bandit-theme', newTheme); applyTheme(newTheme); });
+        themeToggleButton.addEventListener('click', () => {
+            const newTheme = document.body.classList.contains('dark-mode') ? 'light' : 'dark';
+            localStorage.setItem('bandit-theme', newTheme);
+             applyTheme(newTheme);
+              // --- GA Event for Theme Toggle ---
+             if (typeof gtag === 'function') {
+                 gtag('event', 'toggle_theme', {
+                    'event_category': 'Interface',
+                    'new_theme': newTheme
+                 });
+              }
+        });
 
 
         // --- Simulation Logic ---
         function initializeBandits(numBandits, rewardVariance) {
             state.bandits = []; state.trueRewards = []; state.estimatedRewards = Array(numBandits).fill(0); state.counts = Array(numBandits).fill(0); state.thompsonPriors = Array(numBandits).fill(null).map(() => ({ alpha: 1, beta: 1 }));
-            state.regretHistory = [0]; // Initialize with regret at pull 0
+            state.regretHistory = [0]; state.totalReward = 0; state.totalPulls = 0; state.optimalActions = 0; state.cumulativeRegret = 0; // Reset stats on re-init
             let maxMean = -Infinity; state.optimalBandit = -1;
             for (let i = 0; i < numBandits; i++) { const trueMean = normalRandom(0, 1); state.trueRewards.push({ mean: trueMean, stdDev: rewardVariance }); state.bandits.push({ id: i, pulls: 0, totalReward: 0, averageReward: 0 }); if (trueMean > maxMean) { maxMean = trueMean; state.optimalBandit = i; } }
             if (state.optimalBandit === -1 && numBandits > 0) { state.optimalBandit = state.trueRewards.reduce((bestIndex, currentReward, currentIndex) => currentReward.mean > state.trueRewards[bestIndex].mean ? currentIndex : bestIndex, 0); }
@@ -612,235 +762,149 @@
         }
 
         function resetSimulationState() {
-             stopAutoRun(); // Stop auto-run if active
+             stopAutoRun();
              state.bandits = []; state.trueRewards = []; state.estimatedRewards = []; state.counts = []; state.totalReward = 0; state.totalPulls = 0; state.optimalActions = 0; state.cumulativeRegret = 0; state.rewardsHistory = []; state.actionsHistory = []; state.thompsonPriors = []; state.regretHistory = []; state.optimalBandit = -1; state.isRunning = false;
              banditContainer.innerHTML = ''; actionLog.innerHTML = '';
-
-             // Destroy charts safely
-             ['rewardsChart', 'selectionChart', 'regretChart'].forEach(chartName => {
-                 if (state[chartName] && typeof state[chartName].destroy === 'function') {
-                     try { state[chartName].destroy(); } catch (e) { console.error(`Error destroying chart ${chartName}:`, e); }
-                 }
-                 state[chartName] = null;
-             });
-
-             updateResults(); // Reset display
-             resultsPanel.classList.add('hidden'); chartsContainer.classList.add('hidden');
-             setControlsEnabled(true); // Re-enable controls
+             ['rewardsChart', 'selectionChart', 'regretChart'].forEach(chartName => { if (state[chartName]?.destroy) { try { state[chartName].destroy(); } catch (e) { console.error(`Error destroying ${chartName}:`, e); } } state[chartName] = null; });
+             updateResults(); resultsPanel.classList.add('hidden'); chartsContainer.classList.add('hidden');
+             setControlsEnabled(true);
              console.log("Simulation Reset.");
         }
 
         function setControlsEnabled(enabled) {
-            initializeBtn.disabled = !enabled; resetBtn.disabled = !enabled; algorithmSelect.disabled = !enabled; numBanditsInput.disabled = !enabled; rewardVarianceInput.disabled = !enabled; epsilonInput.disabled = !enabled; ucbCInput.disabled = !enabled; autoRunBtn.disabled = !enabled; autoRunPullsInput.disabled = !enabled;
-            // downloadButton related line removed
+            [initializeBtn, resetBtn, algorithmSelect, numBanditsInput, rewardVarianceInput, epsilonInput, ucbCInput, autoRunBtn, autoRunPullsInput]
+                .forEach(el => { if(el) el.disabled = !enabled; });
             banditContainer.querySelectorAll('.bandit-action').forEach(btn => { btn.disabled = !enabled || state.isRunning; });
-            // Ensure algorithm params match enabled state
-            const algorithm = algorithmSelect.value;
-            document.querySelector('.epsilon-param input').disabled = (algorithm !== 'epsilon-greedy') || !enabled;
-            document.querySelector('.ucb-param input').disabled = (algorithm !== 'ucb') || !enabled;
+            const algorithm = algorithmSelect?.value; // Check if select exists
+             if (algorithm) {
+                 const epsilonGroupInput = document.querySelector('.epsilon-param input');
+                 const ucbGroupInput = document.querySelector('.ucb-param input');
+                 if (epsilonGroupInput) epsilonGroupInput.disabled = (algorithm !== 'epsilon-greedy') || !enabled;
+                 if (ucbGroupInput) ucbGroupInput.disabled = (algorithm !== 'ucb') || !enabled;
+             }
         }
 
         function pullArm(armIndex) {
-            // Safety break for runaway auto-runs
             if (state.isRunning && state.totalPulls > 20000) { console.warn("Auto-run safety break triggered at 20k pulls."); stopAutoRun(); return; }
             if (armIndex < 0 || armIndex >= state.bandits.length) { console.error("Invalid arm index:", armIndex); return; }
 
-            // --- Calculate Reward & Update Base State ---
             const reward = normalRandom(state.trueRewards[armIndex].mean, state.trueRewards[armIndex].stdDev);
             state.bandits[armIndex].pulls++; state.bandits[armIndex].totalReward += reward; state.bandits[armIndex].averageReward = state.bandits[armIndex].totalReward / state.bandits[armIndex].pulls;
             state.counts[armIndex]++; state.estimatedRewards[armIndex] = state.bandits[armIndex].averageReward;
-            // Update Thompson priors (ensure priors stay positive)
-             state.thompsonPriors[armIndex].alpha = Math.max(1, state.thompsonPriors[armIndex].alpha + (reward > 0 ? 1 : 0));
-             state.thompsonPriors[armIndex].beta = Math.max(1, state.thompsonPriors[armIndex].beta + (reward <= 0 ? 1 : 0));
-
+            state.thompsonPriors[armIndex].alpha = Math.max(1, state.thompsonPriors[armIndex].alpha + (reward > 0 ? 1 : 0));
+            state.thompsonPriors[armIndex].beta = Math.max(1, state.thompsonPriors[armIndex].beta + (reward <= 0 ? 1 : 0));
             state.totalReward += reward; state.totalPulls++;
             if (armIndex === state.optimalBandit) { state.optimalActions++; }
-
-            // --- Calculate & Store Regret ---
             let instantRegret = 0;
             if (state.optimalBandit !== -1) { instantRegret = state.trueRewards[state.optimalBandit].mean - state.trueRewards[armIndex].mean; state.cumulativeRegret += instantRegret; }
-            else { console.warn("Optimal bandit not set when calculating regret."); }
             state.rewardsHistory.push(reward); state.actionsHistory.push(armIndex);
-            state.regretHistory[state.totalPulls] = state.cumulativeRegret; // Assign regret at current pull index
-
-            // --- Update Non-Chart UI ---
-            updateBanditStats(armIndex);
-            updateResults();
-            addLogEntry(armIndex, reward);
-
-            // --- Update Charts ---
-             updateCharts(); // Direct call (debounce removed for simplicity/debugging)
-
+            state.regretHistory[state.totalPulls] = state.cumulativeRegret;
+            updateBanditStats(armIndex); updateResults(); addLogEntry(armIndex, reward);
+            updateCharts(); // Direct call
         }
 
-        function selectArm() {
-             const algorithm = algorithmSelect.value;
-             const unpulled = state.counts.findIndex(count => count === 0);
-             if (unpulled !== -1 && algorithm !== 'thompson') { return unpulled; } // Explore unpulled arms first (except Thompson)
-             const currentTotalPulls = Math.max(1, state.totalPulls);
-             switch (algorithm) {
-                 case 'epsilon-greedy': return epsilonGreedy();
-                 case 'ucb': return ucb(currentTotalPulls);
-                 case 'thompson': return thompsonSampling();
-                 default: console.warn("Unknown algorithm, defaulting to ε-Greedy."); return epsilonGreedy();
-             }
-        }
-        function epsilonGreedy() {
-             const epsilon = parseFloat(epsilonInput.value); if (isNaN(epsilon)) { console.warn("Invalid epsilon value"); return 0;}
-             if (Math.random() < epsilon) { return Math.floor(Math.random() * state.bandits.length); }
-             else { const maxEstReward = Math.max(...state.estimatedRewards); const bestArms = state.estimatedRewards.reduce((indices, reward, index) => { if (Math.abs(reward - maxEstReward) < 1e-9) indices.push(index); return indices; }, []); return bestArms.length > 0 ? bestArms[Math.floor(Math.random() * bestArms.length)] : 0; }
-        }
-        function ucb(currentTotalPulls) {
-             const c = parseFloat(ucbCInput.value); if (isNaN(c)) { console.warn("Invalid UCB c value"); return 0;}
-             const ucbValues = state.estimatedRewards.map((value, index) => { if (state.counts[index] === 0) { return Infinity; } const explorationTerm = c * Math.sqrt(Math.log(currentTotalPulls) / state.counts[index]); return value + explorationTerm; });
-             const maxUcbValue = Math.max(...ucbValues.filter(v => isFinite(v))); let bestArms = ucbValues.reduce((indices, ucbVal, index) => { if (isFinite(ucbVal) && Math.abs(ucbVal - maxUcbValue) < 1e-9) { indices.push(index); } return indices; }, []);
-             if (bestArms.length === 0) { const finiteIndices = ucbValues.map((v,i) => isFinite(v) ? i : -1).filter(i => i !== -1); return finiteIndices.length > 0 ? finiteIndices[Math.floor(Math.random() * finiteIndices.length)] : 0; }
-             return bestArms[Math.floor(Math.random() * bestArms.length)];
-        }
-        function thompsonSampling() {
-             const sampledValues = state.thompsonPriors.map(prior => { return betaRandom(prior.alpha, prior.beta); });
-             const maxSampledValue = Math.max(...sampledValues); const bestArms = sampledValues.reduce((indices, sample, index) => { if (sample === maxSampledValue) indices.push(index); return indices; }, []);
-             return bestArms.length > 0 ? bestArms[Math.floor(Math.random() * bestArms.length)] : 0;
-        }
+        function selectArm() { /* ... unchanged ... */ const algorithm = algorithmSelect.value; const unpulled = state.counts.findIndex(count => count === 0); if (unpulled !== -1 && algorithm !== 'thompson') { return unpulled; } const currentTotalPulls = Math.max(1, state.totalPulls); switch (algorithm) { case 'epsilon-greedy': return epsilonGreedy(); case 'ucb': return ucb(currentTotalPulls); case 'thompson': return thompsonSampling(); default: console.warn("Unknown algorithm, defaulting to ε-Greedy."); return epsilonGreedy(); } }
+        function epsilonGreedy() { /* ... unchanged ... */ const epsilon = parseFloat(epsilonInput.value); if (isNaN(epsilon)) { console.warn("Invalid epsilon value"); return 0;} if (Math.random() < epsilon) { return Math.floor(Math.random() * state.bandits.length); } else { const maxEstReward = Math.max(...state.estimatedRewards); const bestArms = state.estimatedRewards.reduce((indices, reward, index) => { if (Math.abs(reward - maxEstReward) < 1e-9) indices.push(index); return indices; }, []); return bestArms.length > 0 ? bestArms[Math.floor(Math.random() * bestArms.length)] : 0; } }
+        function ucb(currentTotalPulls) { /* ... unchanged ... */ const c = parseFloat(ucbCInput.value); if (isNaN(c)) { console.warn("Invalid UCB c value"); return 0;} const ucbValues = state.estimatedRewards.map((value, index) => { if (state.counts[index] === 0) { return Infinity; } const explorationTerm = c * Math.sqrt(Math.log(currentTotalPulls) / state.counts[index]); return value + explorationTerm; }); const maxUcbValue = Math.max(...ucbValues.filter(v => isFinite(v))); let bestArms = ucbValues.reduce((indices, ucbVal, index) => { if (isFinite(ucbVal) && Math.abs(ucbVal - maxUcbValue) < 1e-9) { indices.push(index); } return indices; }, []); if (bestArms.length === 0) { const finiteIndices = ucbValues.map((v,i) => isFinite(v) ? i : -1).filter(i => i !== -1); return finiteIndices.length > 0 ? finiteIndices[Math.floor(Math.random() * finiteIndices.length)] : 0; } return bestArms[Math.floor(Math.random() * bestArms.length)]; }
+        function thompsonSampling() { /* ... unchanged ... */ const sampledValues = state.thompsonPriors.map(prior => { return betaRandom(prior.alpha, prior.beta); }); const maxSampledValue = Math.max(...sampledValues); const bestArms = sampledValues.reduce((indices, sample, index) => { if (sample === maxSampledValue) indices.push(index); return indices; }, []); return bestArms.length > 0 ? bestArms[Math.floor(Math.random() * bestArms.length)] : 0; }
+
 
         // --- Auto Run ---
         function startAutoRun() {
              if (state.isRunning) return; if (state.bandits.length === 0) { alert('Please initialize bandits first'); return; }
              state.isRunning = true; setControlsEnabled(false); autoRunBtn.textContent = 'Stop Run';
-             let pullsToRun = parseInt(autoRunPullsInput.value) || 100; pullsToRun = Math.max(1, Math.min(pullsToRun, 20000)); // Cap pulls
-             autoRunPullsInput.value = pullsToRun; // Reflect capped value
+             let pullsToRun = parseInt(autoRunPullsInput.value) || 100; pullsToRun = Math.max(1, Math.min(pullsToRun, 20000)); autoRunPullsInput.value = pullsToRun;
              let pullsCompleted = 0; console.log(`Starting auto-run for ${pullsToRun} pulls.`);
+             // --- GA Event for Auto-Run Start ---
+             if (typeof gtag === 'function') {
+                 gtag('event', 'start_autorun', {
+                    'event_category': 'SimulationControl',
+                    'num_pulls': pullsToRun,
+                    'algorithm': algorithmSelect.value
+                 });
+             }
+             // --- End GA Event ---
              state.autoRunInterval = setInterval(() => {
-                 if (pullsCompleted >= pullsToRun || !state.isRunning) { stopAutoRun(); return; } // Check isRunning flag too
+                 if (pullsCompleted >= pullsToRun || !state.isRunning) { stopAutoRun(); return; }
                  try { const armIndex = selectArm(); pullArm(armIndex); }
                  catch (error) { console.error("Error during auto-run step:", error); stopAutoRun(); alert("An error occurred during auto-run. Check console."); }
                  pullsCompleted++;
              }, AUTO_RUN_INTERVAL_MS);
         }
         function stopAutoRun() {
-             if (state.autoRunInterval) { clearInterval(state.autoRunInterval); state.autoRunInterval = null; console.log("Auto-run stopped."); updateCharts(); } // Final chart update
+             if (state.autoRunInterval) { clearInterval(state.autoRunInterval); state.autoRunInterval = null; console.log("Auto-run stopped."); updateCharts(); }
              state.isRunning = false; setControlsEnabled(true); autoRunBtn.textContent = 'Auto-Run';
         }
         autoRunBtn.addEventListener('click', () => { if (state.isRunning) stopAutoRun(); else startAutoRun(); });
 
+
         // --- UI Updates ---
         function renderBandits() {
-             banditContainer.innerHTML = ''; state.bandits.forEach((bandit, index) => { const card = document.createElement('div'); card.className = 'bandit-card'; card.innerHTML = ` <div class="bandit-header">Bandit ${index + 1}</div> <div class="bandit-body"> <div class="bandit-stats"> <div class="stat">Pulls: <span class="stat-value" id="pulls-${index}">0</span></div> <div class="stat">Avg Reward: <span class="stat-value" id="avg-reward-${index}">0.000</span></div> <div class="stat">Est. Value: <span class="stat-value" id="est-value-${index}">0.000</span></div> </div> <button class="bandit-action" data-index="${index}" ${state.isRunning ? 'disabled' : ''}>Pull Arm</button> </div> `; banditContainer.appendChild(card); card.querySelector('.bandit-action').addEventListener('click', (e) => { if (state.isRunning) return; const armIndex = parseInt(e.target.dataset.index); pullArm(armIndex); }); });
+             banditContainer.innerHTML = ''; state.bandits.forEach((bandit, index) => { const card = document.createElement('div'); card.className = 'bandit-card'; card.innerHTML = ` <div class="bandit-header">Bandit ${index + 1}</div> <div class="bandit-body"> <div class="bandit-stats"> <div class="stat">Pulls: <span class="stat-value" id="pulls-${index}">0</span></div> <div class="stat">Avg Reward: <span class="stat-value" id="avg-reward-${index}">0.000</span></div> <div class="stat">Est. Value: <span class="stat-value" id="est-value-${index}">0.000</span></div> </div> <button class="bandit-action" data-index="${index}" ${state.isRunning ? 'disabled' : ''}>Pull Arm</button> </div> `; banditContainer.appendChild(card);
+             card.querySelector('.bandit-action').addEventListener('click', (e) => { // Add listener for manual pull
+                 if (state.isRunning) return;
+                 const armIndex = parseInt(e.target.dataset.index);
+                 // --- GA Event for Manual Pull ---
+                 if (typeof gtag === 'function') {
+                     gtag('event', 'manual_pull', {
+                        'event_category': 'SimulationControl',
+                        'bandit_index': armIndex + 1, // Use 1-based index
+                        'algorithm': algorithmSelect.value
+                     });
+                 }
+                 // --- End GA Event ---
+                 pullArm(armIndex);
+             });
+            });
         }
-        function updateBanditStats(index) {
-             const pullEl = document.getElementById(`pulls-${index}`); const avgRewardEl = document.getElementById(`avg-reward-${index}`); const estValueEl = document.getElementById(`est-value-${index}`);
-             if (pullEl) pullEl.textContent = state.bandits[index]?.pulls ?? 'N/A'; if (avgRewardEl) avgRewardEl.textContent = state.bandits[index]?.averageReward?.toFixed(3) ?? 'N/A'; if (estValueEl) estValueEl.textContent = state.estimatedRewards[index]?.toFixed(3) ?? 'N/A';
-        }
-        function updateResults() {
-             totalRewardDisplay.textContent = state.totalReward.toFixed(2); const avgReward = state.totalPulls > 0 ? state.totalReward / state.totalPulls : 0; avgRewardDisplay.textContent = avgReward.toFixed(3); const optimalPercent = state.totalPulls > 0 ? (state.optimalActions / state.totalPulls) * 100 : 0; optimalPercentDisplay.textContent = `${optimalPercent.toFixed(1)}%`; cumulativeRegretDisplay.textContent = Math.max(0, state.cumulativeRegret).toFixed(2);
-        }
-        function addLogEntry(armIndex, reward) {
-            const logEntry = document.createElement('div'); logEntry.className = 'log-entry'; const now = new Date(); const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-            logEntry.innerHTML = `<span class="log-time">[${timeString}]</span> <span class="log-action">Pull ${armIndex + 1}:</span> <span class="log-result"> R=</span><span class="log-reward ${reward >= 0 ? 'log-positive' : 'log-negative'}">${reward.toFixed(3)}</span> <span class="log-result">(Avg: ${state.estimatedRewards[armIndex]?.toFixed(3) ?? 'N/A'})</span>`;
-            actionLog.insertBefore(logEntry, actionLog.firstChild);
-            if (actionLog.children.length > MAX_LOG_ENTRIES) { actionLog.removeChild(actionLog.lastChild); }
-        }
+        function updateBanditStats(index) { /* ... unchanged ... */ const pullEl = document.getElementById(`pulls-${index}`); const avgRewardEl = document.getElementById(`avg-reward-${index}`); const estValueEl = document.getElementById(`est-value-${index}`); if (pullEl) pullEl.textContent = state.bandits[index]?.pulls ?? 'N/A'; if (avgRewardEl) avgRewardEl.textContent = state.bandits[index]?.averageReward?.toFixed(3) ?? 'N/A'; if (estValueEl) estValueEl.textContent = state.estimatedRewards[index]?.toFixed(3) ?? 'N/A'; }
+        function updateResults() { /* ... unchanged ... */ totalRewardDisplay.textContent = state.totalReward.toFixed(2); const avgReward = state.totalPulls > 0 ? state.totalReward / state.totalPulls : 0; avgRewardDisplay.textContent = avgReward.toFixed(3); const optimalPercent = state.totalPulls > 0 ? (state.optimalActions / state.totalPulls) * 100 : 0; optimalPercentDisplay.textContent = `${optimalPercent.toFixed(1)}%`; cumulativeRegretDisplay.textContent = Math.max(0, state.cumulativeRegret).toFixed(2); }
+        function addLogEntry(armIndex, reward) { /* ... unchanged ... */ const logEntry = document.createElement('div'); logEntry.className = 'log-entry'; const now = new Date(); const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`; logEntry.innerHTML = `<span class="log-time">[${timeString}]</span> <span class="log-action">Pull ${armIndex + 1}:</span> <span class="log-result"> R=</span><span class="log-reward ${reward >= 0 ? 'log-positive' : 'log-negative'}">${reward.toFixed(3)}</span> <span class="log-result">(Avg: ${state.estimatedRewards[armIndex]?.toFixed(3) ?? 'N/A'})</span>`; actionLog.insertBefore(logEntry, actionLog.firstChild); if (actionLog.children.length > MAX_LOG_ENTRIES) { actionLog.removeChild(actionLog.lastChild); } }
+
 
         // --- Charting ---
         function initializeCharts() {
-            // Destroy existing charts safely
-            ['rewardsChart', 'selectionChart', 'regretChart'].forEach(chartName => { if (state[chartName] && typeof state[chartName].destroy === 'function') { try { state[chartName].destroy(); } catch (e) { console.error(`Error destroying chart ${chartName}:`, e); } } state[chartName] = null; });
-
-            const numBandits = state.bandits.length; if (numBandits === 0) { console.warn("Attempted to initialize charts with 0 bandits."); return; }
-
-            const labels = Array.from({ length: numBandits }, (_, i) => `Bandit ${i + 1}`);
-            const backgroundColors = labels.map((_, i) => `hsl(${i * (360 / numBandits)}, 70%, 60%)`);
-
-            const currentTheme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
-            const computedStyle = getComputedStyle(document.body);
-            const gridColor = currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-            const labelColor = computedStyle.getPropertyValue('--dark').trim() || (currentTheme === 'dark' ? '#f8fafc' : '#1e293b');
-            const titleColor = computedStyle.getPropertyValue('--primary-dark').trim() || (currentTheme === 'dark' ? '#818cf8' : '#4f46e5');
-
+            ['rewardsChart', 'selectionChart', 'regretChart'].forEach(chartName => { if (state[chartName]?.destroy) { try { state[chartName].destroy(); } catch (e) { console.error(`Error destroying ${chartName}:`, e); } } state[chartName] = null; });
+            const numBandits = state.bandits.length; if (numBandits === 0) { console.warn("Init charts: 0 bandits."); return; }
+            const labels = Array.from({ length: numBandits }, (_, i) => `Bandit ${i + 1}`); const backgroundColors = labels.map((_, i) => `hsl(${i * (360 / numBandits)}, 70%, 60%)`);
+            const currentTheme = document.body.classList.contains('dark-mode') ? 'dark' : 'light'; const computedStyle = getComputedStyle(document.body); const gridColor = currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'; const labelColor = computedStyle.getPropertyValue('--dark').trim() || (currentTheme === 'dark' ? '#f8fafc' : '#1e293b'); const titleColor = computedStyle.getPropertyValue('--primary-dark').trim() || (currentTheme === 'dark' ? '#818cf8' : '#4f46e5');
             const commonChartOptions = { responsive: true, maintainAspectRatio: false, animation: { duration: 0 }, scales: { x: { type: 'linear', display: true, grid: { color: gridColor, borderColor: gridColor }, ticks: { color: labelColor, maxTicksLimit: 10, autoSkip: true }, title: { display: true, text: 'Time Steps (Pulls)', color: titleColor } }, y: { display: true, grid: { color: gridColor, borderColor: gridColor }, ticks: { color: labelColor }, title: { display: true, color: titleColor } } }, plugins: { legend: { labels: { color: labelColor } } } };
-
-             try { const rewardsCtx = document.getElementById('rewards-chart').getContext('2d'); state.rewardsChart = new Chart(rewardsCtx, { type: 'line', data: { labels: [0], datasets: [{ label: 'Average Reward', data: [0], borderColor: 'rgb(75, 192, 192)', tension: 0.1, pointRadius: 0, borderWidth: 2 }] }, options: Chart.helpers.merge({}, [commonChartOptions, { scales: { y: { title: { text: 'Average Reward' }, beginAtZero: false } } }]) }); } catch (e) { console.error("Error initializing rewards chart:", e); }
-             try { const selectionCtx = document.getElementById('selection-chart').getContext('2d'); state.selectionChart = new Chart(selectionCtx, { type: 'bar', data: { labels: labels, datasets: [{ label: 'Number of Pulls', data: Array(numBandits).fill(0), backgroundColor: backgroundColors }] }, options: Chart.helpers.merge({}, [commonChartOptions, { scales: { x: { type: 'category', title: { text: 'Bandit' } }, y: { title: { text: 'Count' }, beginAtZero: true } } }]) }); } catch (e) { console.error("Error initializing selection chart:", e); }
-             const regretCanvas = document.getElementById('regret-chart'); if (regretCanvas) { try { const regretCtx = regretCanvas.getContext('2d'); state.regretChart = new Chart(regretCtx, { type: 'line', data: { labels: [0], datasets: [{ label: 'Cumulative Regret', data: [0], borderColor: 'rgb(255, 99, 132)', tension: 0.1, pointRadius: 0, borderWidth: 2 }] }, options: Chart.helpers.merge({}, [commonChartOptions, { scales: { y: { title: { text: 'Cumulative Regret' }, beginAtZero: true } } }]) }); } catch (e) { console.error("Error initializing regret chart:", e); } }
-             // Ensure initial theme applies after chart instances are created
-             applyTheme(localStorage.getItem('bandit-theme') || 'light');
+            try { const rewardsCtx = document.getElementById('rewards-chart').getContext('2d'); state.rewardsChart = new Chart(rewardsCtx, { type: 'line', data: { labels: [0], datasets: [{ label: 'Average Reward', data: [0], borderColor: 'rgb(75, 192, 192)', tension: 0.1, pointRadius: 0, borderWidth: 2 }] }, options: Chart.helpers.merge({}, [commonChartOptions, { scales: { y: { title: { text: 'Average Reward' }, beginAtZero: false } } }]) }); } catch (e) { console.error("Error initializing rewards chart:", e); }
+            try { const selectionCtx = document.getElementById('selection-chart').getContext('2d'); state.selectionChart = new Chart(selectionCtx, { type: 'bar', data: { labels: labels, datasets: [{ label: 'Number of Pulls', data: Array(numBandits).fill(0), backgroundColor: backgroundColors }] }, options: Chart.helpers.merge({}, [commonChartOptions, { scales: { x: { type: 'category', title: { text: 'Bandit' } }, y: { title: { text: 'Count' }, beginAtZero: true } } }]) }); } catch (e) { console.error("Error initializing selection chart:", e); }
+            const regretCanvas = document.getElementById('regret-chart'); if (regretCanvas) { try { const regretCtx = regretCanvas.getContext('2d'); state.regretChart = new Chart(regretCtx, { type: 'line', data: { labels: [0], datasets: [{ label: 'Cumulative Regret', data: [0], borderColor: 'rgb(255, 99, 132)', tension: 0.1, pointRadius: 0, borderWidth: 2 }] }, options: Chart.helpers.merge({}, [commonChartOptions, { scales: { y: { title: { text: 'Cumulative Regret' }, beginAtZero: true } } }]) }); } catch (e) { console.error("Error initializing regret chart:", e); } }
         }
 
-        function updateCharts() {
-            if (!state.rewardsChart || !state.selectionChart) {
-                // console.warn(`[updateCharts @ Pull ${state.totalPulls}] Charts not fully initialized. Skipping.`);
-                return;
-            }
-            // console.log(`[updateCharts @ Pull ${state.totalPulls}] Attempting update.`); // Reduce noise
-
-            try {
-                const currentPull = state.totalPulls;
-                if (currentPull === 0 && state.regretHistory.length <= 1) { return; } // Skip update for pull 0
-
-                const avgReward = currentPull > 0 ? state.totalReward / currentPull : 0;
-
-                // Update Rewards Chart
-                if (state.rewardsChart) {
-                    addDataPoint(state.rewardsChart, currentPull, avgReward, MAX_CHART_POINTS);
-                }
-
-                // Update Selection Chart
-                if (state.selectionChart?.data?.datasets?.[0]) {
-                    state.selectionChart.data.datasets[0].data = [...state.counts];
-                    state.selectionChart.update('none');
-                } else { console.warn("[updateCharts] Selection chart structure invalid."); }
-
-                // Update Regret Chart
-                if (state.regretChart && state.regretHistory.length > currentPull) {
-                    const currentRegret = state.regretHistory[currentPull];
-                    addDataPoint(state.regretChart, currentPull, currentRegret, MAX_CHART_POINTS);
-                }
-
-           } catch (chartUpdateError) {
-                console.error(`Error during chart update @ pull ${state.totalPulls}:`, chartUpdateError);
-           }
-        }
-
-        function addDataPoint(chart, label, data, maxPoints) {
-            try {
-                 if (!chart || !chart.data || !chart.data.labels || !chart.data.datasets || !chart.data.datasets[0]) {
-                    // console.warn(`[addDataPoint] Invalid chart state for ${chart?.canvas?.id}.`); // Reduce noise
-                     return;
-                 }
-                 // Simple history limiting
-                 if (chart.data.labels.length >= maxPoints) {
-                     chart.data.labels.shift();
-                     chart.data.datasets[0].data.shift();
-                 }
-                 chart.data.labels.push(label);
-                 chart.data.datasets[0].data.push(data);
-                 chart.update('none');
-
-             } catch (e) {
-                 console.error(`Error adding data point to chart: ${chart?.canvas?.id}`, e);
-             }
-        }
-
-        // --- Download Function (Removed) ---
-
+        function updateCharts() { /* ... unchanged, calls addDataPoint ... */ if (!state.rewardsChart || !state.selectionChart) { return; } try { const currentPull = state.totalPulls; if (currentPull === 0 && state.regretHistory.length <= 1) { return; } const avgReward = currentPull > 0 ? state.totalReward / currentPull : 0; if (state.rewardsChart) addDataPoint(state.rewardsChart, currentPull, avgReward, MAX_CHART_POINTS); if (state.selectionChart?.data?.datasets?.[0]) { state.selectionChart.data.datasets[0].data = [...state.counts]; state.selectionChart.update('none'); } else { console.warn("[updateCharts] Selection chart structure invalid."); } if (state.regretChart && state.regretHistory.length > currentPull) { const currentRegret = state.regretHistory[currentPull]; addDataPoint(state.regretChart, currentPull, currentRegret, MAX_CHART_POINTS); } } catch (chartUpdateError) { console.error(`Error during chart update @ pull ${state.totalPulls}:`, chartUpdateError); } }
+        function addDataPoint(chart, label, data, maxPoints) { /* ... unchanged ... */ try { if (!chart || !chart.data || !chart.data.labels || !chart.data.datasets || !chart.data.datasets[0]) { return; } if (chart.data.labels.length >= maxPoints) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); } chart.data.labels.push(label); chart.data.datasets[0].data.push(data); chart.update('none'); } catch (e) { console.error(`Error adding data point to chart: ${chart?.canvas?.id}`, e); } }
 
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
             console.log("DOM Content Loaded.");
             const savedTheme = localStorage.getItem('bandit-theme') || 'light';
-            applyTheme(savedTheme); // Apply theme right away
+            applyTheme(savedTheme); // Apply theme first
+
+            checkConsent(); // Check cookie consent status
 
             initializeBtn.addEventListener('click', () => {
                 if (state.isRunning) return;
                  resetSimulationState();
                  try {
-                     const numBandits = parseInt(numBanditsInput.value); const rewardVariance = parseFloat(rewardVarianceInput.value);
+                     const numBandits = parseInt(numBanditsInput.value); const rewardVariance = parseFloat(rewardVarianceInput.value); const algorithm = algorithmSelect.value;
                      if (isNaN(numBandits) || numBandits < 2 || numBandits > 20) { alert('Number of bandits must be between 2 and 20.'); return; }
                      if (isNaN(rewardVariance) || rewardVariance <= 0) { alert('Reward SD must be greater than 0.'); return; }
-                     initializeBandits(numBandits, rewardVariance); renderBandits(); initializeCharts(); // Init charts after bandits
+                     // --- GA Event for Initialization ---
+                     if (typeof gtag === 'function') {
+                         gtag('event', 'initialize_simulation', {
+                            'event_category': 'SimulationSetup',
+                            'num_bandits': numBandits,
+                            'reward_variance': rewardVariance,
+                            'algorithm': algorithm
+                         });
+                     }
+                     // --- End GA Event ---
+                     initializeBandits(numBandits, rewardVariance); renderBandits(); initializeCharts();
                      resultsPanel.classList.remove('hidden'); chartsContainer.classList.remove('hidden');
-                     updateResults();
-                     // updateCharts(); // Charts are initialized with [0] data point now
+                     updateResults(); // Initial UI update
                  } catch (initError) { console.error("Initialization failed:", initError); alert("Initialization failed. Check console."); resetSimulationState(); }
              });
 
@@ -850,10 +914,19 @@
                  const algorithm = algorithmSelect.value;
                  document.querySelector('.epsilon-param').classList.toggle('hidden', algorithm !== 'epsilon-greedy');
                  document.querySelector('.ucb-param').classList.toggle('hidden', algorithm !== 'ucb');
-                 setControlsEnabled(!state.isRunning); // Update param enable state based on algorithm
+                  // --- GA Event for Algorithm Change ---
+                  // Only send if bandits are initialized, maybe?
+                  if (typeof gtag === 'function' && state.bandits.length > 0) {
+                     gtag('event', 'change_algorithm', {
+                        'event_category': 'SimulationSetup',
+                        'selected_algorithm': algorithm
+                     });
+                  }
+                  // --- End GA Event ---
+                 setControlsEnabled(!state.isRunning);
             });
 
-            // Download listener removed
+            // downloadButton listener removed
 
             algorithmSelect.dispatchEvent(new Event('change')); // Trigger initial param visibility
             setControlsEnabled(true); // Ensure initial state is enabled
