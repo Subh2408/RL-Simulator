@@ -322,13 +322,6 @@
         .log-positive { color: var(--success); transition: color 0.3s ease;}
         .log-negative { color: var(--error); transition: color 0.3s ease;}
 
-        .download-btn {
-            display: block; margin: 2rem auto 0; padding: 1rem 2rem; font-size: 1.1rem; background-color: var(--secondary); color: white; border-radius: 8px; text-decoration: none; text-align: center; cursor: pointer;
-             transition: background-color 0.15s ease-in-out, opacity 0.2s ease;
-        }
-        .download-btn:hover:not(:disabled) { background-color: #0d9488; }
-
-
         /* --- Dark Mode Styles --- */
         body.dark-mode {
             background-color: var(--dark-bg);
@@ -414,7 +407,6 @@
             h1 { font-size: 1.8rem; }
             .settings-panel, .results-panel, .chart-card { padding: 1rem; }
             button { padding: 0.6rem 1.2rem; font-size: 0.9rem; }
-            .download-btn { font-size: 1rem; padding: 0.8rem 1.5rem; }
             #theme-toggle-btn { font-size: 0.9rem; padding: 0.4rem 0.8rem !important; } /* Ensure padding override */
             canvas { min-height: 180px; max-height: 220px; }
         }
@@ -515,7 +507,8 @@
              -->
         </div>
 
-        <button id="download-btn" class="download-btn">Download Simulator HTML</button>
+        <!-- Download button removed -->
+
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
@@ -549,7 +542,7 @@
         const cumulativeRegretDisplay = document.getElementById('cumulative-regret');
         const actionLog = document.getElementById('action-log');
         const themeToggleButton = document.getElementById('theme-toggle-btn');
-        const downloadButton = document.getElementById('download-btn');
+        // downloadButton variable removed
 
         // --- Constants ---
         const MAX_LOG_ENTRIES = 200;
@@ -598,7 +591,7 @@
                              console.error("Error updating individual chart theme:", updateError, chart.canvas.id);
                          }
                      } else if (chart) {
-                         console.warn("Skipping theme update for chart, invalid state:", chart.canvas.id);
+                         // console.warn("Skipping theme update for chart, invalid state:", chart.canvas.id); // Can be noisy
                      }
                  });
              } catch (themeError) {
@@ -639,7 +632,7 @@
 
         function setControlsEnabled(enabled) {
             initializeBtn.disabled = !enabled; resetBtn.disabled = !enabled; algorithmSelect.disabled = !enabled; numBanditsInput.disabled = !enabled; rewardVarianceInput.disabled = !enabled; epsilonInput.disabled = !enabled; ucbCInput.disabled = !enabled; autoRunBtn.disabled = !enabled; autoRunPullsInput.disabled = !enabled;
-            downloadButton.disabled = state.isRunning || !enabled; // Disable download if running or sim not active
+            // downloadButton related line removed
             banditContainer.querySelectorAll('.bandit-action').forEach(btn => { btn.disabled = !enabled || state.isRunning; });
             // Ensure algorithm params match enabled state
             const algorithm = algorithmSelect.value;
@@ -676,11 +669,8 @@
             addLogEntry(armIndex, reward);
 
             // --- Update Charts ---
-            // Direct call for simplicity and debugging chart issues
-             console.log(`[Pull ${state.totalPulls}] Calling updateCharts directly.`);
-             updateCharts();
-            // Restore this if performance becomes an issue AND charts update correctly
-            // if (!state.isRunning) updateCharts(); else debouncedUpdateCharts();
+             updateCharts(); // Direct call (debounce removed for simplicity/debugging)
+
         }
 
         function selectArm() {
@@ -753,34 +743,35 @@
 
         // --- Charting ---
         function initializeCharts() {
-             // Destroy existing charts safely
+            // Destroy existing charts safely
             ['rewardsChart', 'selectionChart', 'regretChart'].forEach(chartName => { if (state[chartName] && typeof state[chartName].destroy === 'function') { try { state[chartName].destroy(); } catch (e) { console.error(`Error destroying chart ${chartName}:`, e); } } state[chartName] = null; });
 
-             const numBandits = state.bandits.length; if (numBandits === 0) { console.warn("Attempted to initialize charts with 0 bandits."); return; } // Don't init if no bandits
+            const numBandits = state.bandits.length; if (numBandits === 0) { console.warn("Attempted to initialize charts with 0 bandits."); return; }
 
-             const labels = Array.from({ length: numBandits }, (_, i) => `Bandit ${i + 1}`);
-             const backgroundColors = labels.map((_, i) => `hsl(${i * (360 / numBandits)}, 70%, 60%)`);
+            const labels = Array.from({ length: numBandits }, (_, i) => `Bandit ${i + 1}`);
+            const backgroundColors = labels.map((_, i) => `hsl(${i * (360 / numBandits)}, 70%, 60%)`);
 
-             const currentTheme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
-             const computedStyle = getComputedStyle(document.body);
-             const gridColor = currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-             const labelColor = computedStyle.getPropertyValue('--dark').trim() || (currentTheme === 'dark' ? '#f8fafc' : '#1e293b');
-             const titleColor = computedStyle.getPropertyValue('--primary-dark').trim() || (currentTheme === 'dark' ? '#818cf8' : '#4f46e5');
+            const currentTheme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+            const computedStyle = getComputedStyle(document.body);
+            const gridColor = currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+            const labelColor = computedStyle.getPropertyValue('--dark').trim() || (currentTheme === 'dark' ? '#f8fafc' : '#1e293b');
+            const titleColor = computedStyle.getPropertyValue('--primary-dark').trim() || (currentTheme === 'dark' ? '#818cf8' : '#4f46e5');
 
-             const commonChartOptions = { responsive: true, maintainAspectRatio: false, animation: { duration: 0 }, scales: { x: { type: 'linear', display: true, grid: { color: gridColor, borderColor: gridColor }, ticks: { color: labelColor, maxTicksLimit: 10, autoSkip: true }, title: { display: true, text: 'Time Steps (Pulls)', color: titleColor } }, y: { display: true, grid: { color: gridColor, borderColor: gridColor }, ticks: { color: labelColor }, title: { display: true, color: titleColor } } }, plugins: { legend: { labels: { color: labelColor } } } };
+            const commonChartOptions = { responsive: true, maintainAspectRatio: false, animation: { duration: 0 }, scales: { x: { type: 'linear', display: true, grid: { color: gridColor, borderColor: gridColor }, ticks: { color: labelColor, maxTicksLimit: 10, autoSkip: true }, title: { display: true, text: 'Time Steps (Pulls)', color: titleColor } }, y: { display: true, grid: { color: gridColor, borderColor: gridColor }, ticks: { color: labelColor }, title: { display: true, color: titleColor } } }, plugins: { legend: { labels: { color: labelColor } } } };
 
              try { const rewardsCtx = document.getElementById('rewards-chart').getContext('2d'); state.rewardsChart = new Chart(rewardsCtx, { type: 'line', data: { labels: [0], datasets: [{ label: 'Average Reward', data: [0], borderColor: 'rgb(75, 192, 192)', tension: 0.1, pointRadius: 0, borderWidth: 2 }] }, options: Chart.helpers.merge({}, [commonChartOptions, { scales: { y: { title: { text: 'Average Reward' }, beginAtZero: false } } }]) }); } catch (e) { console.error("Error initializing rewards chart:", e); }
              try { const selectionCtx = document.getElementById('selection-chart').getContext('2d'); state.selectionChart = new Chart(selectionCtx, { type: 'bar', data: { labels: labels, datasets: [{ label: 'Number of Pulls', data: Array(numBandits).fill(0), backgroundColor: backgroundColors }] }, options: Chart.helpers.merge({}, [commonChartOptions, { scales: { x: { type: 'category', title: { text: 'Bandit' } }, y: { title: { text: 'Count' }, beginAtZero: true } } }]) }); } catch (e) { console.error("Error initializing selection chart:", e); }
              const regretCanvas = document.getElementById('regret-chart'); if (regretCanvas) { try { const regretCtx = regretCanvas.getContext('2d'); state.regretChart = new Chart(regretCtx, { type: 'line', data: { labels: [0], datasets: [{ label: 'Cumulative Regret', data: [0], borderColor: 'rgb(255, 99, 132)', tension: 0.1, pointRadius: 0, borderWidth: 2 }] }, options: Chart.helpers.merge({}, [commonChartOptions, { scales: { y: { title: { text: 'Cumulative Regret' }, beginAtZero: true } } }]) }); } catch (e) { console.error("Error initializing regret chart:", e); } }
+             // Ensure initial theme applies after chart instances are created
+             applyTheme(localStorage.getItem('bandit-theme') || 'light');
         }
 
         function updateCharts() {
             if (!state.rewardsChart || !state.selectionChart) {
-                 //console.warn(`[updateCharts @ Pull ${state.totalPulls}] Charts not fully initialized. Skipping.`);
-                 return;
+                // console.warn(`[updateCharts @ Pull ${state.totalPulls}] Charts not fully initialized. Skipping.`);
+                return;
             }
-            // Avoid unnecessary logging on every pull unless debugging
-            // console.log(`[updateCharts @ Pull ${state.totalPulls}] Attempting update.`);
+            // console.log(`[updateCharts @ Pull ${state.totalPulls}] Attempting update.`); // Reduce noise
 
             try {
                 const currentPull = state.totalPulls;
@@ -794,12 +785,10 @@
                 }
 
                 // Update Selection Chart
-                if (state.selectionChart?.data?.datasets?.[0]) { // Safely access nested properties
-                    state.selectionChart.data.datasets[0].data = [...state.counts]; // Update data
-                    state.selectionChart.update('none'); // Trigger redraw without animation
-                } else {
-                     console.warn("[updateCharts] Selection chart structure invalid.");
-                }
+                if (state.selectionChart?.data?.datasets?.[0]) {
+                    state.selectionChart.data.datasets[0].data = [...state.counts];
+                    state.selectionChart.update('none');
+                } else { console.warn("[updateCharts] Selection chart structure invalid."); }
 
                 // Update Regret Chart
                 if (state.regretChart && state.regretHistory.length > currentPull) {
@@ -809,19 +798,13 @@
 
            } catch (chartUpdateError) {
                 console.error(`Error during chart update @ pull ${state.totalPulls}:`, chartUpdateError);
-                // if(state.isRunning) stopAutoRun(); // Optionally stop run on error
            }
         }
 
-        // ---> Debounce can be added back here if performance dictates <---
-        // const debouncedUpdateCharts = debounce(updateCharts, 150);
-
         function addDataPoint(chart, label, data, maxPoints) {
-             // Avoid excessive logging unless debugging chart updates specifically
-             // console.log(`[addDataPoint for ${chart?.canvas?.id}] label: ${label}, data: ${data?.toFixed ? data.toFixed(4) : data}`);
-             try {
+            try {
                  if (!chart || !chart.data || !chart.data.labels || !chart.data.datasets || !chart.data.datasets[0]) {
-                     console.warn(`[addDataPoint] Invalid chart state for ${chart?.canvas?.id}. Cannot add data.`);
+                    // console.warn(`[addDataPoint] Invalid chart state for ${chart?.canvas?.id}.`); // Reduce noise
                      return;
                  }
                  // Simple history limiting
@@ -831,50 +814,21 @@
                  }
                  chart.data.labels.push(label);
                  chart.data.datasets[0].data.push(data);
-                 chart.update('none'); // Update without animation
+                 chart.update('none');
 
              } catch (e) {
                  console.error(`Error adding data point to chart: ${chart?.canvas?.id}`, e);
              }
         }
 
-        // --- Download ---
-        async function downloadHtml() {
-             console.log("Download initiated...");
-             setControlsEnabled(false); downloadButton.disabled = true;
-             try {
-                 await new Promise(resolve => setTimeout(resolve, 50)); // Allow UI to update
-                 console.log("Reading outerHTML...");
-                 const htmlContent = document.documentElement.outerHTML;
-                 console.log(`HTML content length: ${htmlContent.length}`);
-                 if (!htmlContent) { throw new Error("Failed to get HTML content."); }
-                 const filename = 'k-bandit-simulator.html';
-                 const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-                 console.log(`Blob created, size: ${blob.size}`);
-                 const link = document.createElement('a');
-                 const objectUrl = URL.createObjectURL(blob);
-                 console.log("Object URL created:", objectUrl);
-                 link.href = objectUrl; link.download = filename; link.style.display = 'none';
-                 document.body.appendChild(link); console.log("Link appended, triggering click...");
-                 link.click(); console.log("Click triggered."); document.body.removeChild(link);
-                 setTimeout(() => {
-                     try { URL.revokeObjectURL(objectUrl); console.log("Object URL revoked:", objectUrl); }
-                     catch (revokeError) { console.error("Error revoking object URL:", revokeError); }
-                      // Re-enable controls only if simulation is not currently auto-running
-                     if (!state.isRunning) { setControlsEnabled(true); }
-                     downloadButton.disabled = false; // Always re-enable download button itself
-                 }, 500); // Delay revocation
-            } catch (error) {
-                 console.error("Error during download process:", error); alert(`Download failed: ${error.message || error}`);
-                 if (!state.isRunning) { setControlsEnabled(true); } // Re-enable controls on error
-                 downloadButton.disabled = false;
-            }
-        }
+        // --- Download Function (Removed) ---
+
 
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
             console.log("DOM Content Loaded.");
-            const savedTheme = localStorage.getItem('bandit-theme') || 'light'; applyTheme(savedTheme);
+            const savedTheme = localStorage.getItem('bandit-theme') || 'light';
+            applyTheme(savedTheme); // Apply theme right away
 
             initializeBtn.addEventListener('click', () => {
                 if (state.isRunning) return;
@@ -883,9 +837,10 @@
                      const numBandits = parseInt(numBanditsInput.value); const rewardVariance = parseFloat(rewardVarianceInput.value);
                      if (isNaN(numBandits) || numBandits < 2 || numBandits > 20) { alert('Number of bandits must be between 2 and 20.'); return; }
                      if (isNaN(rewardVariance) || rewardVariance <= 0) { alert('Reward SD must be greater than 0.'); return; }
-                     initializeBandits(numBandits, rewardVariance); renderBandits(); initializeCharts();
+                     initializeBandits(numBandits, rewardVariance); renderBandits(); initializeCharts(); // Init charts after bandits
                      resultsPanel.classList.remove('hidden'); chartsContainer.classList.remove('hidden');
-                     updateResults(); updateCharts(); // Initial chart render (with 0 values)
+                     updateResults();
+                     // updateCharts(); // Charts are initialized with [0] data point now
                  } catch (initError) { console.error("Initialization failed:", initError); alert("Initialization failed. Check console."); resetSimulationState(); }
              });
 
@@ -895,12 +850,10 @@
                  const algorithm = algorithmSelect.value;
                  document.querySelector('.epsilon-param').classList.toggle('hidden', algorithm !== 'epsilon-greedy');
                  document.querySelector('.ucb-param').classList.toggle('hidden', algorithm !== 'ucb');
-                 // Also disable the input fields if the section is hidden or sim inactive
-                 setControlsEnabled(!state.isRunning);
+                 setControlsEnabled(!state.isRunning); // Update param enable state based on algorithm
             });
 
-            if (downloadButton) { downloadButton.addEventListener('click', downloadHtml); }
-            else { console.error("Download button not found!"); }
+            // Download listener removed
 
             algorithmSelect.dispatchEvent(new Event('change')); // Trigger initial param visibility
             setControlsEnabled(true); // Ensure initial state is enabled
