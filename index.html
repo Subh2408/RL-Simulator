@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K-Bandit Simulator</title>
+    <style>
+        :root {
+            /* Light Mode Defaults */
+            --primary: #6366f1;
+            --primary-light: #818cf8;
+            --primary-dark: #4f46e5;
+            --secondary: #14b8a6;
+            --dark: #1e293b;      /* Text color in light mode */
+            --light: #f8fafc;     /* Background color in light mode */
+            --gray: #64748b;
+            --light-gray: #e2e8f0; /* Card/Panel bg in light mode */
+            --border: #cbd5e1;    /* Border color in light mode */
+            --error: #ef4444;
+            --success: #22c55e;
+
+             /* Dark Mode Variables (defined but not used by default) */
+             --dark-bg: #1e293b;
+             --dark-card: #334155;
+             --dark-text: #f8fafc;
+             --dark-text-secondary: #cbd5e1; /* Adjusted slightly */
+             --dark-border: #475569;
+             --dark-primary-hover: #818cf8;
+             --dark-secondary-hover: #3f4d60;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+
+        body {
+            background-color: var(--light);
+            color: var(--dark);
+            min-height: 100vh;
+            padding: 2rem;
+            transition: padding 0.2s ease-in-out, background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 1rem; /* Reduced margin */
+            text-align: center;
+        }
+
+        .theme-toggle-container {
+            text-align: center;
+            margin-bottom: 2rem; /* Replaced header margin */
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary-dark);
+            transition: font-size 0.2s ease-in-out, color 0.3s ease;
+        }
+
+        p {
+            line-height: 1.6;
+            margin-bottom: 1rem;
+            color: var(--gray); /* Use gray for paragraph text */
+             transition: color 0.3s ease;
+        }
+
+        .settings-panel,
+        .bandit-card,
+        .chart-card,
+        .results-panel {
+            background-color: white; /* Default to white for explicit light */
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .settings-title,
+        .results-title,
+        .chart-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--primary-dark);
+            transition: color 0.3s ease;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .setting-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--dark); /* Match body text color */
+             transition: color 0.3s ease;
+        }
+
+        input[type="number"], select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            background-color: var(--light); /* Match body background */
+            color: var(--dark); /* Match body text */
+            transition: border-color 0.15s ease-in-out, background-color 0.3s ease, color 0.3s ease;
+        }
+
+        input[type="number"]:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+            align-items: center; /* Vertically align items */
+        }
+
+        button {
+            cursor: pointer;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all 0.15s ease-in-out, background-color 0.3s ease, color 0.3s ease, opacity 0.2s ease; /* Added opacity */
+        }
+        button:disabled { /* Style for disabled buttons */
+             cursor: not-allowed;
+             opacity: 0.6;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) { /* Apply hover only if not disabled */
+            background-color: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background-color: var(--light-gray);
+            color: var(--dark);
+        }
+
+        .btn-secondary:hover:not(:disabled) { /* Apply hover only if not disabled */
+            background-color: #cbd5e1;
+        }
+
+        .bandit-arena {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .bandit-card {
+            background-color: white;
+            overflow: visible; /* Allow potential reveal elements */
+            display: flex; /* Ensure vertical layout */
+            flex-direction: column;
+        }
+
+        .bandit-header {
+            background-color: var(--primary);
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            font-weight: 600;
+            border-top-left-radius: 12px; /* Match card rounding */
+            border-top-right-radius: 12px;
+             transition: background-color 0.3s ease;
+        }
+
+        .bandit-body {
+            padding: 1.5rem;
+            text-align: center;
+            flex-grow: 1; /* Allows body to fill space */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* Push button to bottom */
+        }
+
+        .bandit-stats {
+            margin-bottom: 1rem;
+        }
+
+        .stat {
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            word-wrap: break-word;
+            color: var(--gray);
+             transition: color 0.3s ease;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: var(--primary-dark);
+             transition: color 0.3s ease;
+        }
+
+        .bandit-action {
+            width: 100%;
+            padding: 0.75rem;
+            margin-top: auto; /* Push button down if space allows */
+            background-color: var(--primary-light);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+             transition: background-color 0.15s ease-in-out, opacity 0.2s ease;
+        }
+
+        .bandit-action:hover:not(:disabled) {
+            background-color: var(--primary);
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background-color: white;
+            min-width: 0; /* Ensure card doesn't prevent container shrinking */
+        }
+
+        .chart-title {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: var(--primary-dark);
+             transition: color 0.3s ease;
+        }
+
+        canvas {
+            width: 100% !important;
+            height: auto !important;
+            max-height: 300px; /* Limit canvas height */
+            min-height: 250px; /* Ensure canvas has some min height */
+            display: block;
+        }
+
+        .results-panel {
+            background-color: white;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .result-card {
+            padding: 1rem;
+            background-color: var(--light-gray);
+            border-radius: 8px;
+             transition: background-color 0.3s ease;
+        }
+
+        .result-label {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            word-wrap: break-word;
+            color: var(--dark); /* Match body text */
+             transition: color 0.3s ease;
+        }
+
+        .result-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--primary-dark);
+            word-wrap: break-word;
+             transition: color 0.3s ease;
+        }
+
+        .hidden { display: none !important; }
+
+        .alert {
+            padding: 1rem; border-radius: 8px; margin-bottom: 1rem; background-color: #fef2f2; color: var(--error); border: 1px solid #fee2e2;
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+
+        .tooltip { position: relative; display: inline-block; cursor: help; margin-left: 0.25rem; }
+        .tooltip .tooltip-icon { background-color: var(--gray); color: white; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 12px; font-weight: bold; }
+        .tooltip .tooltip-text { visibility: hidden; max-width: 250px; background-color: var(--dark); color: var(--light); text-align: center; border-radius: 6px; padding: 0.75rem; position: absolute; z-index: 10; bottom: 125%; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity 0.3s, background-color 0.3s ease, color 0.3s ease; font-size: 0.85rem; font-weight: normal; line-height: 1.4; pointer-events: none; }
+        .tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
+
+        .log-container {
+            max-height: 200px; overflow-y: auto; background-color: var(--light-gray); padding: 1rem; border-radius: 8px; font-family: monospace; margin-top: 1rem;
+             transition: background-color 0.3s ease;
+        }
+        .log-entry { margin-bottom: 0.5rem; word-break: break-all; font-size: 0.9em; } /* Slightly smaller log font */
+        .log-time { color: var(--gray); margin-right: 0.5rem; transition: color 0.3s ease;}
+        .log-action { color: var(--primary-dark); font-weight: 600; transition: color 0.3s ease;}
+        .log-result { color: var(--dark); transition: color 0.3s ease;} /* Use --dark variable */
+        .log-reward { margin-left: 0.5rem; font-weight: bold; }
+        .log-positive { color: var(--success); transition: color 0.3s ease;}
+        .log-negative { color: var(--error); transition: color 0.3s ease;}
+
+        .download-btn {
+            display: block; margin: 2rem auto 0; padding: 1rem 2rem; font-size: 1.1rem; background-color: var(--secondary); color: white; border-radius: 8px; text-decoration: none; text-align: center; cursor: pointer;
+             transition: background-color 0.15s ease-in-out, opacity 0.2s ease;
+        }
+        .download-btn:hover:not(:disabled) { background-color: #0d9488; }
+
+
+        /* --- Dark Mode Styles --- */
+        body.dark-mode {
+            background-color: var(--dark-bg);
+            color: var(--dark-text-secondary);
+            --light: var(--dark-bg);
+            --dark: var(--dark-text);
+            --light-gray: var(--dark-card); /* Use dark-card for secondary btn bg */
+            --border: var(--dark-border);
+            --gray: var(--dark-text-secondary); /* Dark mode gray */
+            --primary-dark: var(--primary-light); /* Swap light/dark primary */
+        }
+
+        body.dark-mode p { color: var(--dark-text-secondary); }
+
+        body.dark-mode .settings-panel,
+        body.dark-mode .bandit-card,
+        body.dark-mode .chart-card,
+        body.dark-mode .results-panel {
+            background-color: var(--dark-card);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+        }
+
+        body.dark-mode h1 { color: var(--primary-light); } /* Use light primary */
+        body.dark-mode .settings-title,
+        body.dark-mode .results-title,
+        body.dark-mode .chart-title,
+        body.dark-mode .result-value,
+        body.dark-mode .stat-value,
+        body.dark-mode .log-action { /* Added log action */
+            color: var(--primary-light);
+        }
+
+        body.dark-mode label,
+        body.dark-mode .stat,
+        body.dark-mode .result-label {
+             color: var(--dark-text-secondary);
+        }
+
+        body.dark-mode input[type="number"],
+        body.dark-mode select {
+            background-color: var(--dark-bg); /* Darker input bg */
+            border-color: var(--dark-border);
+            color: var(--dark-text);
+        }
+
+        body.dark-mode input[type="number"]:focus,
+        body.dark-mode select:focus {
+             border-color: var(--primary-light);
+             box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.3); /* Lighter focus */
+        }
+
+        body.dark-mode .btn-secondary {
+            background-color: var(--dark-border); /* Use border color for bg */
+            color: var(--dark-text);
+        }
+
+        body.dark-mode .btn-secondary:hover:not(:disabled) {
+             background-color: var(--dark-secondary-hover);
+        }
+
+        body.dark-mode .tooltip .tooltip-text {
+            background-color: var(--light-gray); /* Lighter tooltip bg (use light gray var) */
+            color: var(--dark-bg); /* Dark text on tooltip */
+        }
+
+        body.dark-mode .log-container {
+            background-color: var(--dark-bg); /* Match body bg */
+            border: 1px solid var(--dark-border); /* Add border */
+        }
+
+        body.dark-mode .log-time { color: var(--dark-text-secondary); }
+        body.dark-mode .log-result { color: var(--dark-text-secondary); }
+
+
+        /* --- Media Queries for Responsiveness --- */
+        @media (max-width: 768px) { /* Tablet and smaller */
+            .charts-container, .settings-grid { grid-template-columns: 1fr; }
+             h1 { font-size: 2.2rem; }
+             canvas { min-height: 200px; max-height: 250px; }
+        }
+        @media (max-width: 576px) { /* Small mobile */
+            body { padding: 1rem; }
+            h1 { font-size: 1.8rem; }
+            .settings-panel, .results-panel, .chart-card { padding: 1rem; }
+            button { padding: 0.6rem 1.2rem; font-size: 0.9rem; }
+            .download-btn { font-size: 1rem; padding: 0.8rem 1.5rem; }
+            #theme-toggle-btn { font-size: 0.9rem; padding: 0.4rem 0.8rem !important; } /* Ensure padding override */
+            canvas { min-height: 180px; max-height: 220px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>K-Bandit Simulator</h1>
+            <p>Explore the multi-armed bandit problem. Configure bandits, choose a strategy, and run simulations to understand exploration vs. exploitation.</p>
+        </header>
+
+        <div class="theme-toggle-container">
+          <button id="theme-toggle-btn" class="btn-secondary" style="padding: 0.5rem 1rem;">☀️ Light</button>
+        </div>
+
+        <div class="settings-panel">
+            <h2 class="settings-title">Simulation Settings</h2>
+            <div class="settings-grid">
+                <div class="setting-group">
+                    <label for="num-bandits">Number of Bandits (K)</label>
+                    <input type="number" id="num-bandits" min="2" max="20" value="5">
+                </div>
+                <div class="setting-group">
+                    <label for="true-reward-variance">Reward SD
+                         <span class="tooltip">
+                            <span class="tooltip-icon">?</span>
+                            <span class="tooltip-text">Standard deviation of the underlying reward distribution for each bandit (rewards drawn from Normal(μ, σ)).</span>
+                        </span>
+                    </label>
+                    <input type="number" id="true-reward-variance" min="0.1" max="10" step="0.1" value="1.0">
+                </div>
+                <div class="setting-group">
+                    <label for="algorithm">Algorithm</label>
+                    <select id="algorithm">
+                        <option value="epsilon-greedy">ε-Greedy</option>
+                        <option value="ucb">UCB1</option>
+                        <option value="thompson">Thompson Sampling (Beta)</option>
+                    </select>
+                </div>
+                <div class="setting-group epsilon-param">
+                    <label for="epsilon">Epsilon (ε)
+                         <span class="tooltip">
+                            <span class="tooltip-icon">?</span>
+                            <span class="tooltip-text">Probability (0 to 1) of choosing a random bandit (exploration) instead of the current best estimated bandit (exploitation).</span>
+                        </span>
+                    </label>
+                    <input type="number" id="epsilon" min="0" max="1" step="0.01" value="0.1">
+                </div>
+                <div class="setting-group ucb-param hidden">
+                    <label for="ucb-c">UCB Confidence (c)
+                         <span class="tooltip">
+                            <span class="tooltip-icon">?</span>
+                            <span class="tooltip-text">Controls the exploration bonus in UCB1. Higher 'c' values encourage more exploration of less-pulled bandits. Common value is 2.</span>
+                        </span>
+                    </label>
+                    <input type="number" id="ucb-c" min="0.1" max="5" step="0.1" value="2">
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button id="initialize-btn" class="btn-primary">Initialize Bandits</button>
+                <button id="reset-btn" class="btn-secondary">Reset Simulation</button>
+                <button id="auto-run-btn" class="btn-secondary">Auto-Run</button>
+                 <input type="number" id="auto-run-pulls" value="100" min="1" max="10000" style="width: 70px; padding: 0.5rem; height: auto;">
+                 <label for="auto-run-pulls" style="margin-bottom: 0;">pulls</label>
+            </div>
+        </div>
+
+        <div id="bandit-container" class="bandit-arena">
+            <!-- Bandit cards will be inserted here -->
+        </div>
+
+        <div class="results-panel hidden" id="results-panel">
+            <h2 class="results-title">Simulation Results</h2>
+            <div class="results-grid">
+                 <div class="result-card"> <div class="result-label">Total Reward</div> <div class="result-value" id="total-reward">0</div> </div>
+                 <div class="result-card"> <div class="result-label">Avg Reward</div> <div class="result-value" id="avg-reward">0.000</div> </div>
+                 <div class="result-card"> <div class="result-label">Optimal %</div> <div class="result-value" id="optimal-percent">0%</div> </div>
+                 <div class="result-card"> <div class="result-label">Regret</div> <div class="result-value" id="cumulative-regret">0.00</div> </div>
+            </div>
+
+            <h3 style="margin-top: 1.5rem; margin-bottom: 0.75rem; color: var(--primary-dark); transition: color 0.3s ease;">Action Log</h3>
+            <div class="log-container" id="action-log">
+                <!-- Log entries will be inserted here -->
+            </div>
+        </div>
+
+        <div class="charts-container hidden" id="charts-container">
+             <div class="chart-card"> <h3 class="chart-title">Average Reward Over Time</h3> <canvas id="rewards-chart"></canvas> </div>
+             <div class="chart-card"> <h3 class="chart-title">Bandit Selection Frequency</h3> <canvas id="selection-chart"></canvas> </div>
+             <!-- Uncomment this section to add the regret chart -->
+             <!--
+             <div class="chart-card">
+                 <h3 class="chart-title">Cumulative Regret Over Time</h3>
+                 <canvas id="regret-chart"></canvas>
+             </div>
+             -->
+        </div>
+
+        <button id="download-btn" class="download-btn">Download Simulator HTML</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script>
+        // --- State ---
+        const state = {
+            bandits: [], trueRewards: [], estimatedRewards: [], counts: [],
+            totalReward: 0, totalPulls: 0, optimalActions: 0, cumulativeRegret: 0,
+            rewardsHistory: [], actionsHistory: [], regretHistory: [],
+            rewardsChart: null, selectionChart: null, regretChart: null, // Added regret chart state
+            optimalBandit: -1, autoRunInterval: null, thompsonPriors: [],
+            isRunning: false // Flag to prevent overlapping operations
+        };
+
+        // --- DOM Elements ---
+        const numBanditsInput = document.getElementById('num-bandits');
+        const rewardVarianceInput = document.getElementById('true-reward-variance');
+        const algorithmSelect = document.getElementById('algorithm');
+        const epsilonInput = document.getElementById('epsilon');
+        const ucbCInput = document.getElementById('ucb-c');
+        const initializeBtn = document.getElementById('initialize-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const autoRunBtn = document.getElementById('auto-run-btn');
+        const autoRunPullsInput = document.getElementById('auto-run-pulls');
+        const banditContainer = document.getElementById('bandit-container');
+        const resultsPanel = document.getElementById('results-panel');
+        const chartsContainer = document.getElementById('charts-container');
+        const totalRewardDisplay = document.getElementById('total-reward');
+        const avgRewardDisplay = document.getElementById('avg-reward');
+        const optimalPercentDisplay = document.getElementById('optimal-percent');
+        const cumulativeRegretDisplay = document.getElementById('cumulative-regret');
+        const actionLog = document.getElementById('action-log');
+        const themeToggleButton = document.getElementById('theme-toggle-btn');
+        const downloadButton = document.getElementById('download-btn');
+
+        // --- Constants ---
+        const MAX_LOG_ENTRIES = 200;
+        const MAX_CHART_POINTS = 500;
+        const AUTO_RUN_INTERVAL_MS = 50; // Interval between pulls in auto-run
+
+        // --- Helper Functions ---
+        function normalRandom(mean = 0, stdDev = 1) { let u = 0, v = 0; while (u === 0) u = Math.random(); while (v === 0) v = Math.random(); const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v); return z * stdDev + mean; }
+        function gammaRandom(alpha, beta = 1) { if (alpha < 1) { return gammaRandom(alpha + 1, beta) * Math.pow(Math.random(), 1.0 / alpha); } const d = alpha - 1.0 / 3.0; const c = 1.0 / Math.sqrt(9.0 * d); let Z, V, U; while (true) { do { Z = normalRandom(0, 1); V = 1.0 + c * Z; } while (V <= 0.0); V = V * V * V; U = Math.random(); if (U < 1.0 - 0.0331 * (Z * Z) * (Z * Z)) { return (d * V) / beta; } if (Math.log(U) < 0.5 * Z * Z + d * (1.0 - V + Math.log(V))) { return (d * V) / beta; } } }
+        function betaRandom(alpha, beta) { const ga = gammaRandom(alpha, 1); const gb = gammaRandom(beta, 1); return (ga + gb === 0) ? 0.5 : ga / (ga + gb); } // Handle division by zero
+        function argmax(arr) { if (!arr || arr.length === 0) return -1; return arr.reduce((bestIndex, currentValue, currentIndex, array) => currentValue > array[bestIndex] ? currentIndex : bestIndex, 0); }
+        function debounce(func, wait) { let timeout; return function executedFunction(...args) { const later = () => { clearTimeout(timeout); func.apply(this, args); }; clearTimeout(timeout); timeout = setTimeout(later, wait); }; }
+
+
+        // --- Theme Toggle ---
+        function applyTheme(theme) {
+             if (theme === 'dark') { document.body.classList.add('dark-mode'); themeToggleButton.textContent = '🌙 Dark'; }
+             else { document.body.classList.remove('dark-mode'); themeToggleButton.textContent = '☀️ Light'; }
+             updateChartThemes(theme);
+        }
+        function updateChartThemes(theme) {
+             try {
+                 const isDark = theme === 'dark';
+                 const computedStyle = getComputedStyle(document.body);
+                 const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+                 const labelColor = computedStyle.getPropertyValue('--dark').trim() || (isDark ? '#f8fafc' : '#1e293b');
+                 const titleColor = computedStyle.getPropertyValue('--primary-dark').trim() || (isDark ? '#818cf8' : '#4f46e5');
+
+                 [state.rewardsChart, state.selectionChart, state.regretChart].forEach(chart => {
+                     if (chart && chart.options && chart.options.scales) {
+                         try {
+                             // Update common scale properties
+                             Object.values(chart.options.scales).forEach(scale => {
+                                 if (scale) {
+                                     if (scale.grid) { scale.grid.color = gridColor; scale.grid.borderColor = gridColor; }
+                                     if (scale.ticks) { scale.ticks.color = labelColor; }
+                                     if (scale.title) { scale.title.color = titleColor; }
+                                 }
+                             });
+                             // Update Legend
+                             if (chart.options.plugins?.legend?.labels) {
+                                 chart.options.plugins.legend.labels.color = labelColor;
+                             }
+                             chart.update('none');
+                         } catch (updateError) {
+                             console.error("Error updating individual chart theme:", updateError, chart.canvas.id);
+                         }
+                     } else if (chart) {
+                         console.warn("Skipping theme update for chart, invalid state:", chart.canvas.id);
+                     }
+                 });
+             } catch (themeError) {
+                 console.error("Error in updateChartThemes:", themeError);
+             }
+        }
+        themeToggleButton.addEventListener('click', () => { const newTheme = document.body.classList.contains('dark-mode') ? 'light' : 'dark'; localStorage.setItem('bandit-theme', newTheme); applyTheme(newTheme); });
+
+
+        // --- Simulation Logic ---
+        function initializeBandits(numBandits, rewardVariance) {
+            state.bandits = []; state.trueRewards = []; state.estimatedRewards = Array(numBandits).fill(0); state.counts = Array(numBandits).fill(0); state.thompsonPriors = Array(numBandits).fill(null).map(() => ({ alpha: 1, beta: 1 }));
+            state.regretHistory = [0]; // Initialize with regret at pull 0
+            let maxMean = -Infinity; state.optimalBandit = -1;
+            for (let i = 0; i < numBandits; i++) { const trueMean = normalRandom(0, 1); state.trueRewards.push({ mean: trueMean, stdDev: rewardVariance }); state.bandits.push({ id: i, pulls: 0, totalReward: 0, averageReward: 0 }); if (trueMean > maxMean) { maxMean = trueMean; state.optimalBandit = i; } }
+            if (state.optimalBandit === -1 && numBandits > 0) { state.optimalBandit = state.trueRewards.reduce((bestIndex, currentReward, currentIndex) => currentReward.mean > state.trueRewards[bestIndex].mean ? currentIndex : bestIndex, 0); }
+            console.log("Initialized Bandits. Optimal Bandit:", state.optimalBandit + 1, "Mean:", state.trueRewards[state.optimalBandit]?.mean.toFixed(3));
+        }
+
+        function resetSimulationState() {
+             stopAutoRun(); // Stop auto-run if active
+             state.bandits = []; state.trueRewards = []; state.estimatedRewards = []; state.counts = []; state.totalReward = 0; state.totalPulls = 0; state.optimalActions = 0; state.cumulativeRegret = 0; state.rewardsHistory = []; state.actionsHistory = []; state.thompsonPriors = []; state.regretHistory = []; state.optimalBandit = -1; state.isRunning = false;
+             banditContainer.innerHTML = ''; actionLog.innerHTML = '';
+
+             // Destroy charts safely
+             ['rewardsChart', 'selectionChart', 'regretChart'].forEach(chartName => {
+                 if (state[chartName] && typeof state[chartName].destroy === 'function') {
+                     try { state[chartName].destroy(); } catch (e) { console.error(`Error destroying chart ${chartName}:`, e); }
+                 }
+                 state[chartName] = null;
+             });
+
+             updateResults(); // Reset display
+             resultsPanel.classList.add('hidden'); chartsContainer.classList.add('hidden');
+             setControlsEnabled(true); // Re-enable controls
+             console.log("Simulation Reset.");
+        }
+
+        function setControlsEnabled(enabled) {
+            initializeBtn.disabled = !enabled; resetBtn.disabled = !enabled; algorithmSelect.disabled = !enabled; numBanditsInput.disabled = !enabled; rewardVarianceInput.disabled = !enabled; epsilonInput.disabled = !enabled; ucbCInput.disabled = !enabled; autoRunBtn.disabled = !enabled; autoRunPullsInput.disabled = !enabled;
+            downloadButton.disabled = state.isRunning || !enabled; // Disable download if running or sim not active
+            banditContainer.querySelectorAll('.bandit-action').forEach(btn => { btn.disabled = !enabled || state.isRunning; });
+            // Ensure algorithm params match enabled state
+            const algorithm = algorithmSelect.value;
+            document.querySelector('.epsilon-param input').disabled = (algorithm !== 'epsilon-greedy') || !enabled;
+            document.querySelector('.ucb-param input').disabled = (algorithm !== 'ucb') || !enabled;
+        }
+
+        function pullArm(armIndex) {
+            // Safety break for runaway auto-runs
+            if (state.isRunning && state.totalPulls > 20000) { console.warn("Auto-run safety break triggered at 20k pulls."); stopAutoRun(); return; }
+            if (armIndex < 0 || armIndex >= state.bandits.length) { console.error("Invalid arm index:", armIndex); return; }
+
+            // --- Calculate Reward & Update Base State ---
+            const reward = normalRandom(state.trueRewards[armIndex].mean, state.trueRewards[armIndex].stdDev);
+            state.bandits[armIndex].pulls++; state.bandits[armIndex].totalReward += reward; state.bandits[armIndex].averageReward = state.bandits[armIndex].totalReward / state.bandits[armIndex].pulls;
+            state.counts[armIndex]++; state.estimatedRewards[armIndex] = state.bandits[armIndex].averageReward;
+            // Update Thompson priors (ensure priors stay positive)
+             state.thompsonPriors[armIndex].alpha = Math.max(1, state.thompsonPriors[armIndex].alpha + (reward > 0 ? 1 : 0));
+             state.thompsonPriors[armIndex].beta = Math.max(1, state.thompsonPriors[armIndex].beta + (reward <= 0 ? 1 : 0));
+
+            state.totalReward += reward; state.totalPulls++;
+            if (armIndex === state.optimalBandit) { state.optimalActions++; }
+
+            // --- Calculate & Store Regret ---
+            let instantRegret = 0;
+            if (state.optimalBandit !== -1) { instantRegret = state.trueRewards[state.optimalBandit].mean - state.trueRewards[armIndex].mean; state.cumulativeRegret += instantRegret; }
+            else { console.warn("Optimal bandit not set when calculating regret."); }
+            state.rewardsHistory.push(reward); state.actionsHistory.push(armIndex);
+            state.regretHistory[state.totalPulls] = state.cumulativeRegret; // Assign regret at current pull index
+
+            // --- Update Non-Chart UI ---
+            updateBanditStats(armIndex);
+            updateResults();
+            addLogEntry(armIndex, reward);
+
+            // --- Update Charts ---
+            // Direct call for simplicity and debugging chart issues
+             console.log(`[Pull ${state.totalPulls}] Calling updateCharts directly.`);
+             updateCharts();
+            // Restore this if performance becomes an issue AND charts update correctly
+            // if (!state.isRunning) updateCharts(); else debouncedUpdateCharts();
+        }
+
+        function selectArm() {
+             const algorithm = algorithmSelect.value;
+             const unpulled = state.counts.findIndex(count => count === 0);
+             if (unpulled !== -1 && algorithm !== 'thompson') { return unpulled; } // Explore unpulled arms first (except Thompson)
+             const currentTotalPulls = Math.max(1, state.totalPulls);
+             switch (algorithm) {
+                 case 'epsilon-greedy': return epsilonGreedy();
+                 case 'ucb': return ucb(currentTotalPulls);
+                 case 'thompson': return thompsonSampling();
+                 default: console.warn("Unknown algorithm, defaulting to ε-Greedy."); return epsilonGreedy();
+             }
+        }
+        function epsilonGreedy() {
+             const epsilon = parseFloat(epsilonInput.value); if (isNaN(epsilon)) { console.warn("Invalid epsilon value"); return 0;}
+             if (Math.random() < epsilon) { return Math.floor(Math.random() * state.bandits.length); }
+             else { const maxEstReward = Math.max(...state.estimatedRewards); const bestArms = state.estimatedRewards.reduce((indices, reward, index) => { if (Math.abs(reward - maxEstReward) < 1e-9) indices.push(index); return indices; }, []); return bestArms.length > 0 ? bestArms[Math.floor(Math.random() * bestArms.length)] : 0; }
+        }
+        function ucb(currentTotalPulls) {
+             const c = parseFloat(ucbCInput.value); if (isNaN(c)) { console.warn("Invalid UCB c value"); return 0;}
+             const ucbValues = state.estimatedRewards.map((value, index) => { if (state.counts[index] === 0) { return Infinity; } const explorationTerm = c * Math.sqrt(Math.log(currentTotalPulls) / state.counts[index]); return value + explorationTerm; });
+             const maxUcbValue = Math.max(...ucbValues.filter(v => isFinite(v))); let bestArms = ucbValues.reduce((indices, ucbVal, index) => { if (isFinite(ucbVal) && Math.abs(ucbVal - maxUcbValue) < 1e-9) { indices.push(index); } return indices; }, []);
+             if (bestArms.length === 0) { const finiteIndices = ucbValues.map((v,i) => isFinite(v) ? i : -1).filter(i => i !== -1); return finiteIndices.length > 0 ? finiteIndices[Math.floor(Math.random() * finiteIndices.length)] : 0; }
+             return bestArms[Math.floor(Math.random() * bestArms.length)];
+        }
+        function thompsonSampling() {
+             const sampledValues = state.thompsonPriors.map(prior => { return betaRandom(prior.alpha, prior.beta); });
+             const maxSampledValue = Math.max(...sampledValues); const bestArms = sampledValues.reduce((indices, sample, index) => { if (sample === maxSampledValue) indices.push(index); return indices; }, []);
+             return bestArms.length > 0 ? bestArms[Math.floor(Math.random() * bestArms.length)] : 0;
+        }
+
+        // --- Auto Run ---
+        function startAutoRun() {
+             if (state.isRunning) return; if (state.bandits.length === 0) { alert('Please initialize bandits first'); return; }
+             state.isRunning = true; setControlsEnabled(false); autoRunBtn.textContent = 'Stop Run';
+             let pullsToRun = parseInt(autoRunPullsInput.value) || 100; pullsToRun = Math.max(1, Math.min(pullsToRun, 20000)); // Cap pulls
+             autoRunPullsInput.value = pullsToRun; // Reflect capped value
+             let pullsCompleted = 0; console.log(`Starting auto-run for ${pullsToRun} pulls.`);
+             state.autoRunInterval = setInterval(() => {
+                 if (pullsCompleted >= pullsToRun || !state.isRunning) { stopAutoRun(); return; } // Check isRunning flag too
+                 try { const armIndex = selectArm(); pullArm(armIndex); }
+                 catch (error) { console.error("Error during auto-run step:", error); stopAutoRun(); alert("An error occurred during auto-run. Check console."); }
+                 pullsCompleted++;
+             }, AUTO_RUN_INTERVAL_MS);
+        }
+        function stopAutoRun() {
+             if (state.autoRunInterval) { clearInterval(state.autoRunInterval); state.autoRunInterval = null; console.log("Auto-run stopped."); updateCharts(); } // Final chart update
+             state.isRunning = false; setControlsEnabled(true); autoRunBtn.textContent = 'Auto-Run';
+        }
+        autoRunBtn.addEventListener('click', () => { if (state.isRunning) stopAutoRun(); else startAutoRun(); });
+
+        // --- UI Updates ---
+        function renderBandits() {
+             banditContainer.innerHTML = ''; state.bandits.forEach((bandit, index) => { const card = document.createElement('div'); card.className = 'bandit-card'; card.innerHTML = ` <div class="bandit-header">Bandit ${index + 1}</div> <div class="bandit-body"> <div class="bandit-stats"> <div class="stat">Pulls: <span class="stat-value" id="pulls-${index}">0</span></div> <div class="stat">Avg Reward: <span class="stat-value" id="avg-reward-${index}">0.000</span></div> <div class="stat">Est. Value: <span class="stat-value" id="est-value-${index}">0.000</span></div> </div> <button class="bandit-action" data-index="${index}" ${state.isRunning ? 'disabled' : ''}>Pull Arm</button> </div> `; banditContainer.appendChild(card); card.querySelector('.bandit-action').addEventListener('click', (e) => { if (state.isRunning) return; const armIndex = parseInt(e.target.dataset.index); pullArm(armIndex); }); });
+        }
+        function updateBanditStats(index) {
+             const pullEl = document.getElementById(`pulls-${index}`); const avgRewardEl = document.getElementById(`avg-reward-${index}`); const estValueEl = document.getElementById(`est-value-${index}`);
+             if (pullEl) pullEl.textContent = state.bandits[index]?.pulls ?? 'N/A'; if (avgRewardEl) avgRewardEl.textContent = state.bandits[index]?.averageReward?.toFixed(3) ?? 'N/A'; if (estValueEl) estValueEl.textContent = state.estimatedRewards[index]?.toFixed(3) ?? 'N/A';
+        }
+        function updateResults() {
+             totalRewardDisplay.textContent = state.totalReward.toFixed(2); const avgReward = state.totalPulls > 0 ? state.totalReward / state.totalPulls : 0; avgRewardDisplay.textContent = avgReward.toFixed(3); const optimalPercent = state.totalPulls > 0 ? (state.optimalActions / state.totalPulls) * 100 : 0; optimalPercentDisplay.textContent = `${optimalPercent.toFixed(1)}%`; cumulativeRegretDisplay.textContent = Math.max(0, state.cumulativeRegret).toFixed(2);
+        }
+        function addLogEntry(armIndex, reward) {
+            const logEntry = document.createElement('div'); logEntry.className = 'log-entry'; const now = new Date(); const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+            logEntry.innerHTML = `<span class="log-time">[${timeString}]</span> <span class="log-action">Pull ${armIndex + 1}:</span> <span class="log-result"> R=</span><span class="log-reward ${reward >= 0 ? 'log-positive' : 'log-negative'}">${reward.toFixed(3)}</span> <span class="log-result">(Avg: ${state.estimatedRewards[armIndex]?.toFixed(3) ?? 'N/A'})</span>`;
+            actionLog.insertBefore(logEntry, actionLog.firstChild);
+            if (actionLog.children.length > MAX_LOG_ENTRIES) { actionLog.removeChild(actionLog.lastChild); }
+        }
+
+        // --- Charting ---
+        function initializeCharts() {
+             // Destroy existing charts safely
+            ['rewardsChart', 'selectionChart', 'regretChart'].forEach(chartName => { if (state[chartName] && typeof state[chartName].destroy === 'function') { try { state[chartName].destroy(); } catch (e) { console.error(`Error destroying chart ${chartName}:`, e); } } state[chartName] = null; });
+
+             const numBandits = state.bandits.length; if (numBandits === 0) { console.warn("Attempted to initialize charts with 0 bandits."); return; } // Don't init if no bandits
+
+             const labels = Array.from({ length: numBandits }, (_, i) => `Bandit ${i + 1}`);
+             const backgroundColors = labels.map((_, i) => `hsl(${i * (360 / numBandits)}, 70%, 60%)`);
+
+             const currentTheme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+             const computedStyle = getComputedStyle(document.body);
+             const gridColor = currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+             const labelColor = computedStyle.getPropertyValue('--dark').trim() || (currentTheme === 'dark' ? '#f8fafc' : '#1e293b');
+             const titleColor = computedStyle.getPropertyValue('--primary-dark').trim() || (currentTheme === 'dark' ? '#818cf8' : '#4f46e5');
+
+             const commonChartOptions = { responsive: true, maintainAspectRatio: false, animation: { duration: 0 }, scales: { x: { type: 'linear', display: true, grid: { color: gridColor, borderColor: gridColor }, ticks: { color: labelColor, maxTicksLimit: 10, autoSkip: true }, title: { display: true, text: 'Time Steps (Pulls)', color: titleColor } }, y: { display: true, grid: { color: gridColor, borderColor: gridColor }, ticks: { color: labelColor }, title: { display: true, color: titleColor } } }, plugins: { legend: { labels: { color: labelColor } } } };
+
+             try { const rewardsCtx = document.getElementById('rewards-chart').getContext('2d'); state.rewardsChart = new Chart(rewardsCtx, { type: 'line', data: { labels: [0], datasets: [{ label: 'Average Reward', data: [0], borderColor: 'rgb(75, 192, 192)', tension: 0.1, pointRadius: 0, borderWidth: 2 }] }, options: Chart.helpers.merge({}, [commonChartOptions, { scales: { y: { title: { text: 'Average Reward' }, beginAtZero: false } } }]) }); } catch (e) { console.error("Error initializing rewards chart:", e); }
+             try { const selectionCtx = document.getElementById('selection-chart').getContext('2d'); state.selectionChart = new Chart(selectionCtx, { type: 'bar', data: { labels: labels, datasets: [{ label: 'Number of Pulls', data: Array(numBandits).fill(0), backgroundColor: backgroundColors }] }, options: Chart.helpers.merge({}, [commonChartOptions, { scales: { x: { type: 'category', title: { text: 'Bandit' } }, y: { title: { text: 'Count' }, beginAtZero: true } } }]) }); } catch (e) { console.error("Error initializing selection chart:", e); }
+             const regretCanvas = document.getElementById('regret-chart'); if (regretCanvas) { try { const regretCtx = regretCanvas.getContext('2d'); state.regretChart = new Chart(regretCtx, { type: 'line', data: { labels: [0], datasets: [{ label: 'Cumulative Regret', data: [0], borderColor: 'rgb(255, 99, 132)', tension: 0.1, pointRadius: 0, borderWidth: 2 }] }, options: Chart.helpers.merge({}, [commonChartOptions, { scales: { y: { title: { text: 'Cumulative Regret' }, beginAtZero: true } } }]) }); } catch (e) { console.error("Error initializing regret chart:", e); } }
+        }
+
+        function updateCharts() {
+            if (!state.rewardsChart || !state.selectionChart) {
+                 //console.warn(`[updateCharts @ Pull ${state.totalPulls}] Charts not fully initialized. Skipping.`);
+                 return;
+            }
+            // Avoid unnecessary logging on every pull unless debugging
+            // console.log(`[updateCharts @ Pull ${state.totalPulls}] Attempting update.`);
+
+            try {
+                const currentPull = state.totalPulls;
+                if (currentPull === 0 && state.regretHistory.length <= 1) { return; } // Skip update for pull 0
+
+                const avgReward = currentPull > 0 ? state.totalReward / currentPull : 0;
+
+                // Update Rewards Chart
+                if (state.rewardsChart) {
+                    addDataPoint(state.rewardsChart, currentPull, avgReward, MAX_CHART_POINTS);
+                }
+
+                // Update Selection Chart
+                if (state.selectionChart?.data?.datasets?.[0]) { // Safely access nested properties
+                    state.selectionChart.data.datasets[0].data = [...state.counts]; // Update data
+                    state.selectionChart.update('none'); // Trigger redraw without animation
+                } else {
+                     console.warn("[updateCharts] Selection chart structure invalid.");
+                }
+
+                // Update Regret Chart
+                if (state.regretChart && state.regretHistory.length > currentPull) {
+                    const currentRegret = state.regretHistory[currentPull];
+                    addDataPoint(state.regretChart, currentPull, currentRegret, MAX_CHART_POINTS);
+                }
+
+           } catch (chartUpdateError) {
+                console.error(`Error during chart update @ pull ${state.totalPulls}:`, chartUpdateError);
+                // if(state.isRunning) stopAutoRun(); // Optionally stop run on error
+           }
+        }
+
+        // ---> Debounce can be added back here if performance dictates <---
+        // const debouncedUpdateCharts = debounce(updateCharts, 150);
+
+        function addDataPoint(chart, label, data, maxPoints) {
+             // Avoid excessive logging unless debugging chart updates specifically
+             // console.log(`[addDataPoint for ${chart?.canvas?.id}] label: ${label}, data: ${data?.toFixed ? data.toFixed(4) : data}`);
+             try {
+                 if (!chart || !chart.data || !chart.data.labels || !chart.data.datasets || !chart.data.datasets[0]) {
+                     console.warn(`[addDataPoint] Invalid chart state for ${chart?.canvas?.id}. Cannot add data.`);
+                     return;
+                 }
+                 // Simple history limiting
+                 if (chart.data.labels.length >= maxPoints) {
+                     chart.data.labels.shift();
+                     chart.data.datasets[0].data.shift();
+                 }
+                 chart.data.labels.push(label);
+                 chart.data.datasets[0].data.push(data);
+                 chart.update('none'); // Update without animation
+
+             } catch (e) {
+                 console.error(`Error adding data point to chart: ${chart?.canvas?.id}`, e);
+             }
+        }
+
+        // --- Download ---
+        async function downloadHtml() {
+             console.log("Download initiated...");
+             setControlsEnabled(false); downloadButton.disabled = true;
+             try {
+                 await new Promise(resolve => setTimeout(resolve, 50)); // Allow UI to update
+                 console.log("Reading outerHTML...");
+                 const htmlContent = document.documentElement.outerHTML;
+                 console.log(`HTML content length: ${htmlContent.length}`);
+                 if (!htmlContent) { throw new Error("Failed to get HTML content."); }
+                 const filename = 'k-bandit-simulator.html';
+                 const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+                 console.log(`Blob created, size: ${blob.size}`);
+                 const link = document.createElement('a');
+                 const objectUrl = URL.createObjectURL(blob);
+                 console.log("Object URL created:", objectUrl);
+                 link.href = objectUrl; link.download = filename; link.style.display = 'none';
+                 document.body.appendChild(link); console.log("Link appended, triggering click...");
+                 link.click(); console.log("Click triggered."); document.body.removeChild(link);
+                 setTimeout(() => {
+                     try { URL.revokeObjectURL(objectUrl); console.log("Object URL revoked:", objectUrl); }
+                     catch (revokeError) { console.error("Error revoking object URL:", revokeError); }
+                      // Re-enable controls only if simulation is not currently auto-running
+                     if (!state.isRunning) { setControlsEnabled(true); }
+                     downloadButton.disabled = false; // Always re-enable download button itself
+                 }, 500); // Delay revocation
+            } catch (error) {
+                 console.error("Error during download process:", error); alert(`Download failed: ${error.message || error}`);
+                 if (!state.isRunning) { setControlsEnabled(true); } // Re-enable controls on error
+                 downloadButton.disabled = false;
+            }
+        }
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM Content Loaded.");
+            const savedTheme = localStorage.getItem('bandit-theme') || 'light'; applyTheme(savedTheme);
+
+            initializeBtn.addEventListener('click', () => {
+                if (state.isRunning) return;
+                 resetSimulationState();
+                 try {
+                     const numBandits = parseInt(numBanditsInput.value); const rewardVariance = parseFloat(rewardVarianceInput.value);
+                     if (isNaN(numBandits) || numBandits < 2 || numBandits > 20) { alert('Number of bandits must be between 2 and 20.'); return; }
+                     if (isNaN(rewardVariance) || rewardVariance <= 0) { alert('Reward SD must be greater than 0.'); return; }
+                     initializeBandits(numBandits, rewardVariance); renderBandits(); initializeCharts();
+                     resultsPanel.classList.remove('hidden'); chartsContainer.classList.remove('hidden');
+                     updateResults(); updateCharts(); // Initial chart render (with 0 values)
+                 } catch (initError) { console.error("Initialization failed:", initError); alert("Initialization failed. Check console."); resetSimulationState(); }
+             });
+
+            resetBtn.addEventListener('click', () => { if (!state.isRunning) resetSimulationState(); });
+
+            algorithmSelect.addEventListener('change', () => {
+                 const algorithm = algorithmSelect.value;
+                 document.querySelector('.epsilon-param').classList.toggle('hidden', algorithm !== 'epsilon-greedy');
+                 document.querySelector('.ucb-param').classList.toggle('hidden', algorithm !== 'ucb');
+                 // Also disable the input fields if the section is hidden or sim inactive
+                 setControlsEnabled(!state.isRunning);
+            });
+
+            if (downloadButton) { downloadButton.addEventListener('click', downloadHtml); }
+            else { console.error("Download button not found!"); }
+
+            algorithmSelect.dispatchEvent(new Event('change')); // Trigger initial param visibility
+            setControlsEnabled(true); // Ensure initial state is enabled
+            console.log("Initialization complete.");
+        });
+
+    </script>
+</body>
+</html>
