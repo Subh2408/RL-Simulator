@@ -13,7 +13,7 @@ Winning Bandit: Identify which bandit performed best after all runs.
 
 🖥️ Deployment
 This project is already deployed and accessible online.
-🔗 Link to the live app (replace # with your app link)
+🔗https://rl-simulator.onrender.com/)
 
 📚 How It Works
 Set Up Bandits: Initialize bandits with different reward probabilities or payout configurations.
