@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>RL Branch Explorer</title>
 
+<!-- Google Analytics (GA4) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-21LE5XE8LV"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -12,6 +13,7 @@
   gtag('js', new Date());
   gtag('config', 'G-21LE5XE8LV');
 </script>
+<!-- End Google Analytics -->
   
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -30,12 +32,23 @@ body{background:#f7f8fa;color:#0f1117;font-family:Jost,system-ui,sans-serif;font
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .anim-slide{animation:slideIn 0.38s cubic-bezier(0.16,1,0.3,1);}
 .anim-fade{animation:fadeUp 0.26s ease;}
+button{-webkit-tap-highlight-color:transparent;}
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useCallback } = React;
+const { useState, useCallback, useEffect } = React;
+
+function useMobile(bp=768){
+  const[mob,setMob]=useState(()=>typeof window!=='undefined'&&window.innerWidth<bp);
+  useEffect(()=>{
+    const handler=()=>setMob(window.innerWidth<bp);
+    window.addEventListener('resize',handler);
+    return()=>window.removeEventListener('resize',handler);
+  },[bp]);
+  return mob;
+}
 
 const P = {bg:'#f7f8fa',s1:'#f1f3f6',s2:'#e8ebf0',s3:'#dde1ea',white:'#ffffff',border:'#dde1e8',border2:'#c8cdd8',text:'#0f1117',sub:'#3d4354',muted:'#7b8299',dim:'#b0b7c8',accent:'#3a5bd9',accentL:'rgba(58,91,217,0.08)',accentM:'rgba(58,91,217,0.16)',green:'#1a8a5a',greenL:'rgba(26,138,90,0.09)',amber:'#a0680e',amberL:'rgba(160,104,14,0.09)',red:'#c03535',redL:'rgba(192,53,53,0.09)'};
 const MONO  = "'DM Mono',monospace";
@@ -785,21 +798,21 @@ function ActionCard({action:a,isRec,onChoose}){
 }
 
 /* STEP CARD */
-function StepCard({run,onChoose}){
+function StepCard({run,onChoose,mob}){
   const sc=run.scenario,si=run.stepIdx,step=safeStep(sc,si);
   if(!step)return null;
   const agRec=agentPolicy(run.qtable,sc,si,run.cur);
   return(
     <Card className="anim-slide">
-      <div style={{padding:'22px 24px 16px',borderBottom:`1px solid ${P.border}`}}>
+      <div style={{padding:mob?'16px 16px 12px':'22px 24px 16px',borderBottom:`1px solid ${P.border}`}}>
         <Label size={10} color={P.accent} style={{display:'block',marginBottom:6}}>Step {si+1} of {sc.steps.length}</Label>
-        <h2 style={{fontFamily:SERIF,fontWeight:500,fontSize:26,color:P.text,lineHeight:1.1,marginBottom:8}}>{step.title}</h2>
-        <p style={{color:P.muted,fontSize:14,lineHeight:1.7,fontFamily:SERIF,fontStyle:'italic'}}>{step.description}</p>
+        <h2 style={{fontFamily:SERIF,fontWeight:500,fontSize:mob?20:26,color:P.text,lineHeight:1.1,marginBottom:8}}>{step.title}</h2>
+        <p style={{color:P.muted,fontSize:mob?13:14,lineHeight:1.7,fontFamily:SERIF,fontStyle:'italic'}}>{step.description}</p>
       </div>
-      <div style={{padding:'14px 24px',borderBottom:`1px solid ${P.border}`,display:'flex',gap:8,flexWrap:'wrap'}}>
+      <div style={{padding:mob?'10px 16px':'14px 24px',borderBottom:`1px solid ${P.border}`,display:'flex',gap:6,flexWrap:'wrap'}}>
         {VARS.map(k=><StatBar key={k} k={k} v={run.cur[k]}/>)}
       </div>
-      <div style={{padding:'18px 24px 22px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+      <div style={{padding:mob?'12px 16px 16px':'18px 24px 22px',display:'grid',gridTemplateColumns:mob?'1fr':'1fr 1fr',gap:mob?8:10}}>
         {step.actions.map((a,i)=><ActionCard key={i} action={a} isRec={i===agRec} onChoose={()=>onChoose(i)}/>)}
       </div>
     </Card>
@@ -807,11 +820,56 @@ function StepCard({run,onChoose}){
 }
 
 /* RAIL */
-function Rail({run,phase,onReset}){
+function Rail({run,phase,onReset,mob,open,onToggle}){
   const sc=run.scenario,done=run.history.length,total=sc.steps.length;
   const isComplete=phase==='complete';
   const agR=isComplete?agentTotal(sc,run.qtable):0;
   const gap=run.totalReward-agR;
+  const pct=Math.round(done/total*100);
+
+  if(mob){
+    return(
+      <div style={{background:P.s1,borderBottom:`1px solid ${P.border}`,flexShrink:0}}>
+        <div style={{padding:'10px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,flex:1,minWidth:0}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:12,fontWeight:600,color:P.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:SANS}}>{sc.title}</div>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3}}>
+                <div style={{flex:1,height:3,background:P.s3,borderRadius:2,overflow:'hidden',maxWidth:120}}>
+                  <div style={{height:'100%',width:`${pct}%`,background:P.accent,borderRadius:2,transition:'width 0.4s ease'}}/>
+                </div>
+                <span style={{fontFamily:MONO,fontSize:10,color:P.sub,flexShrink:0}}>{done}/{total}</span>
+                <span style={{fontFamily:MONO,fontSize:10,color:run.totalRegret>2?P.red:run.totalRegret<0.3?P.green:P.amber,flexShrink:0}}>rgr {run.totalRegret.toFixed(1)}</span>
+              </div>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:8,flexShrink:0}}>
+            <button onClick={onToggle} style={{padding:'6px 12px',background:'transparent',border:`1px solid ${P.border}`,borderRadius:5,fontFamily:SANS,fontSize:11,color:P.muted,cursor:'pointer'}}>{open?'Hide':'Details'}</button>
+            <button onClick={onReset} style={{padding:'6px 12px',background:'transparent',border:`1px solid ${P.border}`,borderRadius:5,fontFamily:SANS,fontSize:11,color:P.muted,cursor:'pointer'}}>Reset</button>
+          </div>
+        </div>
+        {open&&(
+          <div style={{padding:'12px 16px 16px',borderTop:`1px solid ${P.border}`,display:'flex',flexDirection:'column',gap:10}}>
+            <div style={{fontSize:12,color:P.muted,lineHeight:1.6,padding:'8px 10px',background:P.white,border:`1px solid ${P.border}`,borderRadius:6,fontFamily:SERIF,fontStyle:'italic'}}>{sc.objective}</div>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              <Tag>{sc.domain}</Tag><Tag>{sc.focus}</Tag>
+            </div>
+            {isComplete&&(
+              <div style={{display:'flex',gap:8}}>
+                {[{label:'You',val:run.totalReward.toFixed(2),c:P.text},{label:'Agent',val:agR,c:P.accent},{label:'Gap',val:(gap>=0?'+':'')+gap.toFixed(2),c:gap>=0?P.green:P.red}].map(({label,val,c})=>(
+                  <div key={label} style={{flex:1,background:P.white,border:`1px solid ${P.border}`,borderRadius:6,padding:'8px 10px',textAlign:'center'}}>
+                    <Label size={8} style={{display:'block',marginBottom:2}}>{label}</Label>
+                    <div style={{fontFamily:MONO,fontSize:13,fontWeight:500,color:c}}>{val}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return(
     <div style={{width:242,flexShrink:0,background:P.s1,borderRight:`1px solid ${P.border}`,display:'flex',flexDirection:'column',overflowY:'auto',overflowX:'hidden'}}>
       <div style={{padding:'24px 20px',flex:1,display:'flex',flexDirection:'column',gap:16,position:'relative'}}>
@@ -828,7 +886,7 @@ function Rail({run,phase,onReset}){
             <span style={{fontFamily:MONO,fontSize:12,color:P.sub}}>{done}/{total}</span>
           </div>
           <div style={{height:4,background:P.s3,borderRadius:2,overflow:'hidden'}}>
-            <div style={{height:'100%',width:`${Math.round(done/total*100)}%`,background:P.accent,borderRadius:2,transition:'width 0.4s ease'}}/>
+            <div style={{height:'100%',width:`${pct}%`,background:P.accent,borderRadius:2,transition:'width 0.4s ease'}}/>
           </div>
         </div>
         <div style={{background:P.white,border:`1px solid ${P.border}`,borderRadius:6,padding:'10px 14px'}}>
@@ -859,15 +917,17 @@ function Rail({run,phase,onReset}){
 /* WORKSPACE */
 function Workspace({run,phase,selectedNode,onChoose,onReset,onNodeClick}){
   const isComplete=phase==='complete';
+  const mob=useMobile();
+  const[railOpen,setRailOpen]=useState(false);
   return(
-    <div style={{display:'flex',height:'100vh',overflow:'hidden',background:P.bg}}>
-      <Rail run={run} phase={phase} onReset={onReset}/>
-      <div style={{flex:1,overflowY:'auto',overflowX:'hidden',display:'flex',flexDirection:'column',gap:16,padding:'24px'}}>
+    <div style={{display:'flex',flexDirection:mob?'column':'row',height:'100vh',overflow:'hidden',background:P.bg}}>
+      <Rail run={run} phase={phase} onReset={onReset} mob={mob} open={railOpen} onToggle={()=>setRailOpen(o=>!o)}/>
+      <div style={{flex:1,overflowY:'auto',overflowX:'hidden',display:'flex',flexDirection:'column',gap:mob?12:16,padding:mob?'12px':' 24px'}}>
         {isComplete?(
           <>
-            <div style={{background:P.white,border:`1px solid ${P.border}`,borderRadius:10,padding:'16px 22px'}}>
+            <div style={{background:P.white,border:`1px solid ${P.border}`,borderRadius:10,padding:mob?'12px 16px':'16px 22px'}}>
               <Label size={9} style={{display:'block',marginBottom:5}}>Run complete</Label>
-              <p style={{fontSize:13,color:P.muted,fontFamily:SERIF,fontStyle:'italic'}}>Click any node in the graph to inspect how each decision shaped the outcome.</p>
+              <p style={{fontSize:13,color:P.muted,fontFamily:SERIF,fontStyle:'italic'}}>Tap any node in the graph to inspect how each decision shaped the outcome.</p>
             </div>
             <BranchGraph run={run} selectedNode={selectedNode} onNodeClick={onNodeClick}/>
             <NodeDetail run={run} selectedNode={selectedNode}/>
@@ -876,7 +936,7 @@ function Workspace({run,phase,selectedNode,onChoose,onReset,onNodeClick}){
           </>
         ):(
           <>
-            <StepCard run={run} onChoose={onChoose}/>
+            <StepCard run={run} onChoose={onChoose} mob={mob}/>
             <BranchGraph run={run} selectedNode={selectedNode} onNodeClick={onNodeClick}/>
             {run.latestFb&&<Feedback fb={run.latestFb}/>}
             {selectedNode!==null&&<NodeDetail run={run} selectedNode={selectedNode}/>}
@@ -912,55 +972,47 @@ function ScenarioCard({sc,sel,onSelect}){
 
 function Landing({selectedId,onSelect,onStart}){
   const sc=SCENARIOS.find(s=>s.id===selectedId)||SCENARIOS[0];
+  const mob=useMobile();
   return(
-    <div style={{maxWidth:1280,margin:'0 auto',padding:'32px 32px 48px',minHeight:'100vh',display:'flex',flexDirection:'column',gap:28}}>
-      <div style={{paddingBottom:24,borderBottom:`1px solid ${P.border}`,display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:20,flexWrap:'wrap'}}>
+    <div style={{maxWidth:1280,margin:'0 auto',padding:mob?'20px 16px 40px':'32px 32px 48px',minHeight:'100vh',display:'flex',flexDirection:'column',gap:mob?20:28}}>
+      <div style={{paddingBottom:20,borderBottom:`1px solid ${P.border}`,display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
         <div>
-          <Label size={10} color={P.accent} style={{display:'block',marginBottom:10}}>RL Branch Explorer</Label>
-          <h1 style={{fontFamily:SERIF,fontWeight:500,fontSize:'clamp(30px,4vw,52px)',lineHeight:1.05,color:P.text}}>Sequential decisions.<br/><em>Real consequences.</em></h1>
+          <Label size={10} color={P.accent} style={{display:'block',marginBottom:8}}>RL Branch Explorer</Label>
+          <h1 style={{fontFamily:SERIF,fontWeight:500,fontSize:mob?'clamp(26px,7vw,38px)':'clamp(30px,4vw,52px)',lineHeight:1.05,color:P.text}}>Sequential decisions.<br/><em>Real consequences.</em></h1>
         </div>
-        <p style={{color:P.muted,fontSize:14,fontFamily:SERIF,fontStyle:'italic',lineHeight:1.7,maxWidth:300}}>Pick a scenario. Make decisions step by step. Compare your path against the trained RL agent.</p>
+        {!mob&&<p style={{color:P.muted,fontSize:14,fontFamily:SERIF,fontStyle:'italic',lineHeight:1.7,maxWidth:300}}>Pick a scenario. Make decisions step by step. Compare your path against the trained RL agent.</p>}
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'300px 1fr',gap:24,alignItems:'start'}}>
-        <Card style={{position:'relative'}}>
+      <div style={{display:'grid',gridTemplateColumns:mob?'1fr':'300px 1fr',gap:mob?16:24,alignItems:'start'}}>
+        <Card style={{position:'relative',order:mob?2:1}}>
           <div style={{position:'absolute',top:0,left:0,right:0,height:3,borderRadius:'10px 10px 0 0',background:`linear-gradient(90deg,${P.accent},transparent)`}}/>
-          <div style={{padding:'26px 22px',display:'flex',flexDirection:'column',gap:18}}>
+          <div style={{padding:mob?'18px 16px':'26px 22px',display:'flex',flexDirection:'column',gap:14}}>
             <div>
-              <Label size={9} style={{display:'block',marginBottom:8}}>Selected</Label>
-              <h2 style={{fontFamily:SERIF,fontSize:22,fontWeight:500,lineHeight:1.15,color:P.text,wordBreak:'break-word'}}>{sc.title}</h2>
+              <Label size={9} style={{display:'block',marginBottom:6}}>Selected</Label>
+              <h2 style={{fontFamily:SERIF,fontSize:mob?19:22,fontWeight:500,lineHeight:1.15,color:P.text,wordBreak:'break-word'}}>{sc.title}</h2>
               <p style={{color:P.muted,fontSize:13,lineHeight:1.7,marginTop:8,fontFamily:SERIF,fontStyle:'italic'}}>{sc.premise}</p>
             </div>
-            <div style={{background:P.s1,border:`1px solid ${P.border}`,borderRadius:7,padding:'12px 14px'}}>
-              <Label size={9} color={P.accent} style={{display:'block',marginBottom:5}}>Objective</Label>
+            <div style={{background:P.s1,border:`1px solid ${P.border}`,borderRadius:7,padding:'10px 12px'}}>
+              <Label size={9} color={P.accent} style={{display:'block',marginBottom:4}}>Objective</Label>
               <p style={{fontSize:12.5,color:P.text,lineHeight:1.6,wordBreak:'break-word'}}>{sc.objective}</p>
             </div>
             <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
               <Tag>{sc.domain}</Tag><Tag>{sc.steps.length} steps</Tag><Tag>{sc.focus}</Tag>
             </div>
-            <div style={{display:'flex',gap:8}}>
-              <div style={{flex:'0 0 auto',background:P.s1,border:`1px solid ${P.border}`,borderRadius:6,padding:'10px 16px'}}>
-                <Label size={9} style={{display:'block',marginBottom:3}}>Steps</Label>
-                <div style={{fontFamily:MONO,fontSize:18,fontWeight:500,color:P.text}}>{sc.steps.length}</div>
-              </div>
-              <div style={{flex:'0 0 auto',background:P.s1,border:`1px solid ${P.border}`,borderRadius:6,padding:'10px 16px'}}>
-                <Label size={9} style={{display:'block',marginBottom:3}}>Status</Label>
-                <div style={{fontFamily:MONO,fontSize:13,fontWeight:500,color:P.green}}>Ready</div>
-              </div>
-            </div>
             <PrimaryBtn onClick={onStart}>Initialize scenario</PrimaryBtn>
             <div style={{fontSize:11.5,color:P.dim,lineHeight:1.7,fontFamily:SERIF,fontStyle:'italic',paddingTop:4,borderTop:`1px solid ${P.border}`}}>The RL agent trains 800 episodes on your chosen scenario before the run begins.</div>
           </div>
         </Card>
-        <div style={{display:'flex',flexDirection:'column',gap:20}}>
+        <div style={{display:'flex',flexDirection:'column',gap:mob?16:20,order:mob?1:2}}>
+          {mob&&<p style={{color:P.muted,fontSize:13,fontFamily:SERIF,fontStyle:'italic',lineHeight:1.6}}>Pick a scenario below, then tap Initialize to start.</p>}
           {ROWS.map(rowLabel=>{
             const rowScenarios=SCENARIOS.filter(s=>s.row===rowLabel);
             return(
               <div key={rowLabel}>
-                <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
+                <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
                   <Label size={9} color={P.accent}>{rowLabel}</Label>
                   <div style={{flex:1,height:1,background:P.border}}/>
                 </div>
-                <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+                <div style={{display:'grid',gridTemplateColumns:mob?'repeat(2,1fr)':'repeat(4,1fr)',gap:mob?8:12}}>
                   {rowScenarios.map(s=>(
                     <ScenarioCard key={s.id} sc={s} sel={s.id===selectedId} onSelect={onSelect}/>
                   ))}
@@ -1027,6 +1079,3 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
 </html>
-
-
-
