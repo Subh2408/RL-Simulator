@@ -1,670 +1,1020 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>K-Bandit Simulator</title>
-
-    <!-- Google Analytics (GA4) - REPLACE 'YOUR_GA4_MEASUREMENT_ID' -->
-    <script>
-      // Define default consent settings BEFORE loading gtag or configuring GA4
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-
-      gtag('consent', 'default', {
-        'analytics_storage': 'denied', // Deny analytics tracking by default
-        'ad_storage': 'denied',        // Other common consent types
-        'ad_user_data': 'denied',
-        'ad_personalization': 'denied',
-        'wait_for_update': 500        // Milliseconds to wait for consent update before sending initial hits
-      });
-      // Load gtag.js asynchronously
-      (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtag.start':
-      new Date().getTime(),event:'gtag.js'});var f=d.getElementsByTagName(s)[0],
-      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-      'https://www.googletagmanager.com/gtag/js?id='+i+dl;f.parentNode.insertBefore(j,f);
-      })(window,document,'script','dataLayer','G-45CCWT6XS1'); // <<< REPLACE THIS ID!
-      // Initial configuration call (will respect default consent)
-      gtag('js', new Date());
-      gtag('config', 'G-45CCWT6XS1'); // <<< REPLACE THIS ID!
-    </script>
-    <!-- End Google Analytics -->
-
-    <style>
-        :root {
-            /* === MindSpring Inspired Color Scheme === */
-            /* Light Mode Defaults (Adapted) */
-            --primary: #16a34a; /* Green as primary */
-            --primary-light: #22c55e;
-            --primary-dark: #15803d;
-            --secondary: #4f46e5; /* Indigo as secondary */
-            --dark: #1f2937;      /* Darker text */
-            --light: #f9fafb;     /* Off-white background */
-            --gray: #6b7280;
-            --light-gray: #e5e7eb; /* Lighter gray for panels/buttons */
-            --border: #d1d5db;
-            --error: #ef4444;
-            --success: #22c55e; /* Keep success green */
-            --light-bg-gradient: linear-gradient(135deg, #f9fafb 0%, #e5e7eb 100%); /* Light gradient */
-
-            /* Dark Mode Variables (MindSpring Style) */
-            --dark-bg: #111827; /* Very dark background */
-            --dark-card: #1f2937; /* Panel background */
-            --dark-text: #f9fafb; /* Main text (off-white) */
-            --dark-text-secondary: #9ca3af; /* Lighter gray text */
-            --dark-border: #374151; /* Panel borders */
-            --dark-primary: #22c55e; /* Vibrant Green */
-            --dark-primary-hover: #16a34a; /* Darker green for hover */
-            --dark-secondary-hover: #4338ca; /* Darker indigo for secondary hover */
-            --dark-bg-gradient: linear-gradient(135deg, #111827 0%, #1f2937 100%); /* Dark gradient */
-            /* ======================================== */
-        }
-
-        * {
-            margin: 0; padding: 0; box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-        }
-
-        body {
-            background: var(--light-bg-gradient); /* Default to light gradient */
-            color: var(--dark);
-            min-height: 100vh;
-            padding: 1.5rem; /* Adjusted padding */
-            padding-bottom: 8rem;
-            transition: padding 0.2s ease-in-out, background 0.3s ease, color 0.3s ease;
-        }
-
-        .container { max-width: 1200px; margin: 0 auto; padding: 0; }
-
-        header {
-            margin-bottom: 2rem; /* Increased margin */
-            text-align: center;
-            padding: 1.5rem; /* Increased padding */
-            background-color: rgba(255, 255, 255, 0.7);
-            border-radius: 10px; /* Slightly larger radius */
-            box-shadow: 0 3px 6px rgba(0,0,0,0.05);
-        }
-
-        .theme-toggle-container { text-align: center; margin-bottom: 2.5rem; } /* Increased margin */
-
-        h1 { font-size: 2.5rem; margin-bottom: 0.5rem; color: var(--primary-dark); transition: font-size 0.2s ease-in-out, color 0.3s ease; }
-        p { line-height: 1.6; margin-bottom: 1rem; color: var(--gray); transition: color 0.3s ease; }
-
-        .settings-panel,
-        .bandit-card,
-        .chart-card,
-        .results-panel {
-            background-color: var(--light-gray); /* Use light-gray for light mode panels */
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
-            transition: background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
-        }
-
-        .settings-title,
-        .results-title,
-        .chart-title { font-size: 1.5rem; margin-bottom: 1rem; color: var(--primary-dark); transition: color 0.3s ease; }
-
-         /* Style for the final average reward & selection summary */
-        .chart-summary-display { /* Renamed for general use */
-            text-align: center;
-            font-size: 1rem;
-            font-weight: 500;
-            color: var(--gray);
-            margin-bottom: 0.75rem;
-            transition: color 0.3s ease;
-        }
-        .chart-summary-display .value {
-            font-weight: 600;
-            font-size: 1.1rem;
-            color: var(--primary-dark); /* Use primary color for value */
-            margin-left: 0.25rem; /* Space after label */
-        }
-         .chart-summary-display .separator { /* Style for separator */
-             margin: 0 0.5rem;
-             color: var(--gray);
-             opacity: 0.6;
-         }
-
-
-        .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; }
-        .setting-group { margin-bottom: 1rem; }
-        label { display: block; font-weight: 500; margin-bottom: 0.5rem; color: var(--dark); transition: color 0.3s ease; }
-
-        input[type="number"], select {
-            width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; background-color: var(--light); color: var(--dark); transition: border-color 0.15s ease-in-out, background-color 0.3s ease, color 0.3s ease;
-        }
-        input[type="number"]:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2); /* Green focus */ }
-
-        .button-group { display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; align-items: center; }
-        button { cursor: pointer; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: 500; transition: all 0.15s ease-in-out, background-color 0.3s ease, color 0.3s ease, opacity 0.2s ease; }
-        button:disabled { cursor: not-allowed; opacity: 0.6; }
-
-        .btn-primary { background-color: var(--primary); color: white; }
-        .btn-primary:hover:not(:disabled) { background-color: var(--primary-dark); }
-        .btn-secondary { background-color: var(--light-gray); color: var(--dark); }
-        .btn-secondary:hover:not(:disabled) { background-color: #d1d5db; /* Darker gray hover */ }
-
-        .bandit-arena { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
-        .bandit-card { overflow: visible; display: flex; flex-direction: column; }
-        .bandit-header { background-color: var(--primary); color: white; padding: 1rem; text-align: center; font-weight: 600; border-top-left-radius: 12px; border-top-right-radius: 12px; transition: background-color 0.3s ease; }
-        .bandit-body { padding: 1.5rem; text-align: center; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
-        .bandit-stats { margin-bottom: 1rem; }
-        .stat { margin-bottom: 0.5rem; font-size: 0.9rem; word-wrap: break-word; color: var(--gray); transition: color 0.3s ease; }
-        .stat-value { font-weight: 600; color: var(--primary-dark); transition: color 0.3s ease; }
-        .bandit-action { width: 100%; padding: 0.75rem; margin-top: auto; background-color: var(--primary-light); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: background-color 0.15s ease-in-out, opacity 0.2s ease; }
-        .bandit-action:hover:not(:disabled) { background-color: var(--primary); }
-
-        .charts-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
-        .chart-card { min-width: 0; }
-        .chart-title { font-size: 1.25rem; margin-bottom: 0.5rem; /* Reduced margin */ color: var(--primary-dark); transition: color 0.3s ease; }
-        canvas { width: 100% !important; height: auto !important; max-height: 300px; min-height: 250px; display: block; }
-
-        .results-panel {}
-        .results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem; }
-        .result-card { padding: 1rem; background-color: var(--light-gray); border-radius: 8px; transition: background-color 0.3s ease; }
-        .result-label { font-weight: 500; margin-bottom: 0.5rem; word-wrap: break-word; color: var(--dark); transition: color 0.3s ease; }
-        .result-value { font-size: 1.5rem; font-weight: 600; color: var(--primary-dark); word-wrap: break-word; transition: color 0.3s ease; }
-
-        .hidden { display: none !important; }
-        .alert { padding: 1rem; border-radius: 8px; margin-bottom: 1rem; background-color: #fef2f2; color: var(--error); border: 1px solid #fee2e2; transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
-        .tooltip { position: relative; display: inline-block; cursor: help; margin-left: 0.25rem; }
-        .tooltip .tooltip-icon { background-color: var(--gray); color: var(--light); /* Light text on gray bg */ width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 12px; font-weight: bold; }
-        .tooltip .tooltip-text { visibility: hidden; max-width: 250px; background-color: var(--dark); color: var(--light); text-align: center; border-radius: 6px; padding: 0.75rem; position: absolute; z-index: 10; bottom: 125%; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity 0.3s, background-color 0.3s ease, color 0.3s ease; font-size: 0.85rem; font-weight: normal; line-height: 1.4; pointer-events: none; }
-        .tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
-
-        .log-container { max-height: 200px; overflow-y: auto; background-color: var(--light-gray); padding: 1rem; border-radius: 8px; font-family: monospace; margin-top: 1rem; transition: background-color 0.3s ease; }
-        .log-entry { margin-bottom: 0.5rem; word-break: break-all; font-size: 0.9em; }
-        .log-time { color: var(--gray); margin-right: 0.5rem; transition: color 0.3s ease;}
-        .log-action { color: var(--primary-dark); font-weight: 600; transition: color 0.3s ease;}
-        .log-result { color: var(--dark); transition: color 0.3s ease;}
-        .log-reward { margin-left: 0.5rem; font-weight: bold; }
-        .log-positive { color: var(--success); transition: color 0.3s ease;}
-        .log-negative { color: var(--error); transition: color 0.3s ease;}
-
-        /* --- Dark Mode Styles (MindSpring Inspired) --- */
-        body.dark-mode {
-            background: var(--dark-bg-gradient);
-            color: var(--dark-text-secondary);
-            --light: var(--dark-bg);
-            --dark: var(--dark-text);
-            --light-gray: var(--dark-card);
-            --border: var(--dark-border);
-            --gray: var(--dark-text-secondary);
-            /* Primary color changes */
-            --primary: var(--dark-primary);
-            --primary-light: #4ade80; /* Lighter green */
-            --primary-dark: var(--dark-primary-hover); /* Darker green from hover */
-        }
-
-        body.dark-mode header {
-             background-color: rgba(31, 41, 55, 0.7); /* dark-card with alpha */
-             box-shadow: 0 3px 6px rgba(0,0,0,0.15);
-        }
-        body.dark-mode p { color: var(--dark-text-secondary); }
-
-        body.dark-mode .settings-panel,
-        body.dark-mode .bandit-card,
-        body.dark-mode .chart-card,
-        body.dark-mode .results-panel {
-            background-color: var(--dark-card);
-            border-color: var(--dark-border);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
-        }
-
-        body.dark-mode h1,
-        body.dark-mode .settings-title,
-        body.dark-mode .results-title,
-        body.dark-mode .chart-title,
-        body.dark-mode .result-value,
-        body.dark-mode .stat-value,
-        body.dark-mode .log-action,
-        body.dark-mode .chart-summary-display .value { /* Update summary value color */
-            color: var(--dark-text); /* Main text color for titles/values */
-        }
-
-        body.dark-mode label,
-        body.dark-mode .stat,
-        body.dark-mode .result-label,
-        body.dark-mode .chart-summary-display { /* Update summary label color */
-             color: var(--dark-text-secondary);
-        }
-
-        body.dark-mode input[type="number"],
-        body.dark-mode select {
-            background-color: var(--dark-bg);
-            border-color: var(--dark-border);
-            color: var(--dark-text);
-        }
-
-        body.dark-mode input[type="number"]:focus,
-        body.dark-mode select:focus {
-             border-color: var(--primary); /* Use primary green */
-             box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3); /* Green focus */
-        }
-
-        /* Override button colors for dark mode */
-        body.dark-mode .btn-primary { background-color: var(--primary); color: var(--dark-bg); /* Dark text on green */ }
-        body.dark-mode .btn-primary:hover:not(:disabled) { background-color: var(--primary-dark); }
-        body.dark-mode .btn-secondary { background-color: var(--dark-border); color: var(--dark-text); }
-        body.dark-mode .btn-secondary:hover:not(:disabled) { background-color: #4b5563; } /* Slightly lighter border color */
-
-        body.dark-mode .tooltip .tooltip-icon { background-color: var(--dark-text-secondary); color: var(--dark-bg); }
-        body.dark-mode .tooltip .tooltip-text { background-color: var(--dark-text-secondary); color: var(--dark-bg); }
-
-        body.dark-mode .log-container,
-        body.dark-mode .result-card { background-color: var(--dark-bg); border: 1px solid var(--dark-border); }
-        body.dark-mode .log-time,
-        body.dark-mode .log-result { color: var(--dark-text-secondary); }
-
-
-        /* --- Cookie Consent Banner Styles (Adapted) --- */
-        #cookie-consent-banner {
-            display: none; position: fixed; bottom: 0; left: 0; width: 100%; background-color: var(--dark-card, #1f2937); /* Dark mode default */ color: var(--dark-text, #f9fafb); padding: 15px 20px; box-shadow: 0 -2px 5px rgba(0,0,0,0.2); z-index: 1000; font-size: 0.9rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; border-top: 1px solid var(--dark-border);
-        }
-        body:not(.dark-mode) #cookie-consent-banner { background-color: var(--light-gray); color: var(--dark); border-top: 1px solid var(--border); }
-        #cookie-consent-banner button { padding: 0.5rem 1rem; font-size: 0.9rem; min-width: 80px; margin-left: 5px; }
-        /* Keep button styles consistent with theme */
-        body:not(.dark-mode) #consent-decline-btn { background-color: #d1d5db; color: var(--dark); }
-        body:not(.dark-mode) #consent-decline-btn:hover:not(:disabled) { background-color: #9ca3af; }
-
-        /* --- Media Queries (Minor adjustments) --- */
-        @media (max-width: 768px) {
-             .charts-container, .settings-grid { grid-template-columns: 1fr; }
-             h1 { font-size: 2.2rem; }
-             canvas { min-height: 200px; max-height: 250px; }
-             body { padding: 1rem; padding-bottom: 8rem; }
-             header { padding: 1.2rem; }
-             #cookie-consent-banner { flex-direction: column; align-items: flex-start; text-align: center; }
-             #cookie-consent-banner > div { width: 100%; display: flex; justify-content: center; }
-        }
-        @media (max-width: 576px) {
-            body { padding: 0.5rem; padding-bottom: 10rem; }
-            header { padding: 1rem; }
-            h1 { font-size: 1.8rem; }
-            .settings-panel, .results-panel, .chart-card, .bandit-body { padding: 1rem; }
-            button { padding: 0.6rem 1.2rem; font-size: 0.9rem; }
-            #theme-toggle-btn { font-size: 0.9rem; padding: 0.4rem 0.8rem !important; }
-            canvas { min-height: 180px; max-height: 220px; }
-            #cookie-consent-banner button { width: 45%; margin: 5px 2.5%; }
-        }
-    </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RL Branch Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Mono:wght@400;500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body,#root{height:100%;}
+body{background:#f7f8fa;color:#0f1117;font-family:Jost,system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:#f1f3f6;}
+::-webkit-scrollbar-thumb{background:#c8cdd8;border-radius:2px;}
+@keyframes slideIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.anim-slide{animation:slideIn 0.38s cubic-bezier(0.16,1,0.3,1);}
+.anim-fade{animation:fadeUp 0.26s ease;}
+</style>
 </head>
 <body>
-    <!-- Add class based on theme preference before content loads to prevent flash -->
-    <script>
-        (function() {
-            const savedTheme = localStorage.getItem('bandit-theme') || 'dark'; // Default to dark
-            if (savedTheme === 'dark') {
-                document.body.classList.add('dark-mode');
-            }
-        })();
-    </script>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useCallback } = React;
 
-    <div class="container">
-        <header>
-            <h1>K-Bandit Simulator</h1>
-            <p>Explore the multi-armed bandit problem. Configure bandits, choose a strategy, and run simulations to understand exploration vs. exploitation.</p>
-        </header>
+const P = {bg:'#f7f8fa',s1:'#f1f3f6',s2:'#e8ebf0',s3:'#dde1ea',white:'#ffffff',border:'#dde1e8',border2:'#c8cdd8',text:'#0f1117',sub:'#3d4354',muted:'#7b8299',dim:'#b0b7c8',accent:'#3a5bd9',accentL:'rgba(58,91,217,0.08)',accentM:'rgba(58,91,217,0.16)',green:'#1a8a5a',greenL:'rgba(26,138,90,0.09)',amber:'#a0680e',amberL:'rgba(160,104,14,0.09)',red:'#c03535',redL:'rgba(192,53,53,0.09)'};
+const MONO  = "'DM Mono',monospace";
+const SERIF = "'Cormorant Garamond',Georgia,serif";
+const SANS  = "'Jost',system-ui,sans-serif";
 
-        <div class="theme-toggle-container">
-          <!-- Default button text set later by JS -->
-          <button id="theme-toggle-btn" class="btn-secondary" style="padding: 0.5rem 1rem;"></button>
-        </div>
+const SCENARIOS = [
+  {
+    id:'airspace', row:'Aviation & Marine',
+    title:'Airspace Closure',
+    domain:'Airline Operations', focus:'Real-time crisis',
+    premise:'A conflict zone closes its airspace with two hours notice. Forty flights are mid-route.',
+    objective:'Bring all aircraft and passengers to safety while minimising operational damage.',
+    initialState:{trust:70,revenue:68,capacity:72,cost:22,risk:48},
+    steps:[
+      { title:'Closure Confirmed Mid-Flight',
+        description:'Air traffic control has confirmed the closure. Forty aircraft are affected. Some cannot reach destination without a fuel stop.',
+        actions:[
+          {label:'Divert all affected flights',       description:'Immediate diversion orders to nearest safe alternate airports.',    effects:{trust:8,  revenue:-15,capacity:-10,cost:18,risk:-20}},
+          {label:'Seek emergency corridor',           description:'Request a temporary military-cleared flight corridor from authorities.',effects:{trust:5,revenue:-5,capacity:-5,cost:8,risk:-5}},
+          {label:'Hold remaining departures',         description:'Ground all departures for the affected region immediately.',          effects:{trust:5,revenue:-18,capacity:5,cost:5,risk:-15}},
+          {label:'Continue and monitor',              description:'Press on with current routes while monitoring the situation.',        effects:{trust:-8,revenue:0,capacity:0,cost:0,risk:25}},
+        ]},
+      { title:'Fuel State Critical on Six Aircraft',
+        description:'Six aircraft cannot reach their destination without a refuel stop. Neutral-country alternates are available but unplanned.',
+        actions:[
+          {label:'Emergency land at neutral airport', description:'Divert the six aircraft to the nearest neutral-country alternate.',   effects:{trust:10,revenue:-10,capacity:-5,cost:15,risk:-18}},
+          {label:'Request military corridor access',  description:'Negotiate an emergency passage corridor through diplomatic channels.',effects:{trust:5,revenue:-5,capacity:0,cost:10,risk:-10}},
+          {label:'Coordinate priority ATC routing',   description:'Work with regional ATC for fuel-efficient routing to destination.',   effects:{trust:5,revenue:-5,capacity:0,cost:8,risk:-8}},
+          {label:'Burn reserves and press on',        description:'Accept fuel risk and continue to destination with reserves.',         effects:{trust:-5,revenue:5,capacity:0,cost:5,risk:20}},
+        ]},
+      { title:'Passengers Demand Answers',
+        description:'Social media is flooding with complaints. Passengers onboard are being told nothing.',
+        actions:[
+          {label:'Live crew announcements every 20m', description:'Regular honest updates from flight deck to all passengers.',     effects:{trust:15,revenue:-2,capacity:-3,cost:3,risk:-10}},
+          {label:'CEO public statement immediately',  description:'Personal statement from leadership acknowledging the situation.',  effects:{trust:12,revenue:-3,capacity:0,cost:5,risk:-8}},
+          {label:'Proactive refund and rebook offer', description:'All affected passengers offered full refund or rebooking.',        effects:{trust:10,revenue:-15,capacity:-5,cost:15,risk:-8}},
+          {label:'Minimal comms until resolved',      description:'No updates until aircraft are safely on the ground.',              effects:{trust:-15,revenue:0,capacity:0,cost:0,risk:8}},
+        ]},
+      { title:'Crew Duty Hours Exceeded',
+        description:'Extended diversions mean several crews have breached or are approaching legal duty hour limits.',
+        actions:[
+          {label:'Ground affected aircraft now',      description:'Park aircraft and source fresh crew before any further flight.',  effects:{trust:8,revenue:-12,capacity:-15,cost:12,risk:-15}},
+          {label:'Apply for regulatory exemption',    description:'File emergency exemption with aviation authority for duty extension.',effects:{trust:5,revenue:-5,capacity:5,cost:8,risk:-5}},
+          {label:'Rotate standby crew to airports',   description:'Position reserve crew by charter to relieve exhausted crews.',  effects:{trust:8,revenue:-8,capacity:5,cost:18,risk:-10}},
+          {label:'Continue with crew consent',        description:'Crew volunteers to continue under legal review.',                  effects:{trust:-5,revenue:5,capacity:0,cost:5,risk:15}},
+        ]},
+      { title:'14-Day Closure Confirmed',
+        description:'The closure is now expected to last two weeks. Network recovery decisions will define the quarter.',
+        actions:[
+          {label:'Suspend all affected routes',      description:'Cancel all routes through the region for 14 days.',                effects:{trust:5,revenue:-20,capacity:10,cost:-5,risk:-15}},
+          {label:'Reroute with fuel surcharge',      description:'Continue via longer routes and pass fuel cost to passengers.',      effects:{trust:-8,revenue:-5,capacity:-5,cost:10,risk:-5}},
+          {label:'Codeshare with competitors',       description:'Partner with carriers on unaffected routes to protect passengers.',  effects:{trust:10,revenue:-8,capacity:5,cost:8,risk:-10}},
+          {label:'Lease extra capacity',             description:'Wet-lease aircraft to operate viable extended routings.',           effects:{trust:8,revenue:-5,capacity:15,cost:20,risk:-5}},
+        ]},
+    ]
+  },
+  {
+    id:'stranded', row:'Aviation & Marine',
+    title:'Stranded Passengers',
+    domain:'Airline / Crisis', focus:'Customer safety',
+    premise:'Eight hundred passengers are grounded at a conflict-adjacent airport. The situation is deteriorating.',
+    objective:'Evacuate all passengers safely while managing cost, media exposure and regulatory relations.',
+    initialState:{trust:62,revenue:58,capacity:65,cost:28,risk:55},
+    steps:[
+      { title:'Terminal Is Overcrowded',
+        description:'Ground transport into the city is unsafe. Eight hundred passengers are in the terminal with limited food and water.',
+        actions:[
+          {label:'Charter emergency evacuation flights',description:'Immediately secure charter aircraft to begin evacuating passengers.',effects:{trust:15,revenue:-20,capacity:-5,cost:22,risk:-18}},
+          {label:'Coordinate with embassy',            description:'Contact the embassy to explore government-assisted evacuation.',    effects:{trust:10,revenue:-5,capacity:0,cost:8,risk:-10}},
+          {label:'Shelter in place with full support', description:'Commit to full ground support and wait for the situation to resolve.',effects:{trust:8,revenue:-10,capacity:-5,cost:15,risk:-5}},
+          {label:'Advise passengers to self-arrange',  description:'Inform passengers they must make their own arrangements.',          effects:{trust:-20,revenue:0,capacity:5,cost:-5,risk:15}},
+        ]},
+      { title:'Airport Announces Six-Hour Closure',
+        description:'The airport authority has announced it will close in six hours. Two runways remain briefly operational.',
+        actions:[
+          {label:'Scramble all charter capacity now',  description:'Maximum urgency - secure every available aircraft immediately.',    effects:{trust:12,revenue:-15,capacity:-5,cost:20,risk:-15}},
+          {label:'Prioritise families and medical',    description:'Triage boarding to prioritise the most vulnerable passengers first.',effects:{trust:15,revenue:-5,capacity:0,cost:8,risk:-10}},
+          {label:'Negotiate slot priority with airport',description:'Secure priority take-off slots through the airport authority.',    effects:{trust:8,revenue:-8,capacity:5,cost:12,risk:-8}},
+          {label:'Shared charter with other airlines', description:'Partner with stranded carriers to pool charter aircraft.',           effects:{trust:10,revenue:-10,capacity:10,cost:15,risk:-10}},
+        ]},
+      { title:'Live Media Coverage From Terminal',
+        description:'Journalists are broadcasting live from inside the terminal on international news channels.',
+        actions:[
+          {label:'Ground spokesperson addresses press',description:'Senior manager holds live press briefing inside the terminal.',   effects:{trust:15,revenue:-3,capacity:0,cost:5,risk:-12}},
+          {label:'CEO flies out immediately',          description:'CEO departs for the airport to lead the response personally.',    effects:{trust:18,revenue:-5,capacity:-3,cost:12,risk:-15}},
+          {label:'Legal team manages media access',    description:'Legal controls all press contacts and limits filming.',          effects:{trust:-10,revenue:0,capacity:0,cost:8,risk:5}},
+          {label:'Full media blackout until evacuation',description:'No press access until all passengers are airborne.',             effects:{trust:-8,revenue:0,capacity:3,cost:0,risk:5}},
+        ]},
+      { title:'Government Requests Passenger Manifests',
+        description:'The foreign government will not approve evacuation flights without full passenger manifests and biometric data.',
+        actions:[
+          {label:'Full compliance with manifest request',description:'Provide all requested data to secure flight clearances.',        effects:{trust:8,revenue:0,capacity:5,cost:5,risk:-15}},
+          {label:'Legal challenge to disclosure',      description:'Contest the data request through legal and diplomatic channels.', effects:{trust:-5,revenue:-5,capacity:-5,cost:15,risk:10}},
+          {label:'Partial disclosure - numbers only',  description:'Provide aggregate passenger counts without personal data.',       effects:{trust:0,revenue:0,capacity:0,cost:5,risk:0}},
+          {label:'Negotiate through embassy',          description:'Work through the home government embassy to find a compromise.',  effects:{trust:5,revenue:0,capacity:3,cost:8,risk:-5}},
+        ]},
+      { title:'Final Evacuation Window',
+        description:'The last viable window for flights is open. Available aircraft cannot carry all remaining passengers.',
+        actions:[
+          {label:'Strict priority boarding protocol',  description:'Formalised triage - most vulnerable board first, all documented.',  effects:{trust:12,revenue:-8,capacity:0,cost:8,risk:-12}},
+          {label:'Maximum load on all aircraft',       description:'Utilise crew rest seats and every available position onboard.',     effects:{trust:8,revenue:-10,capacity:-5,cost:5,risk:-5}},
+          {label:'Ground convoy to third-country border',description:'Arrange road convoy to a safe border crossing as fallback.',     effects:{trust:10,revenue:-15,capacity:5,cost:18,risk:-8}},
+          {label:'Commit to return flight within 48hrs',description:'Leave a team on the ground and promise an immediate return.',     effects:{trust:15,revenue:-12,capacity:-8,cost:15,risk:-10}},
+        ]},
+    ]
+  },
+  {
+    id:'hull-claim', row:'Aviation & Marine',
+    title:'War Risk Hull Claim Dispute',
+    domain:'Marine Insurance', focus:'Claims management',
+    premise:'A vessel sustained damage in a conflict zone. Underwriters are disputing whether the war risk clause applies. The claim is worth $40M.',
+    objective:'Resolve the disputed claim while protecting the client relationship and market standing.',
+    initialState:{trust:72,revenue:65,capacity:82,cost:20,risk:36},
+    steps:[
+      { title:'Claim Filed After Vessel Damage',
+        description:'The vessel master reported hostile fire damage. The claim is filed. Underwriters have 30 days to respond.',
+        actions:[
+          {label:'Accept and begin settlement',        description:'Acknowledge the claim and open formal settlement proceedings.',    effects:{trust:12,revenue:-15,capacity:0,cost:10,risk:-10}},
+          {label:'Commission independent surveyor',    description:'Appoint an independent marine surveyor to assess the damage.',    effects:{trust:8,revenue:-5,capacity:0,cost:8,risk:-8}},
+          {label:'Request full master incident report',description:'Ask the vessel master for a detailed account before responding.', effects:{trust:5,revenue:0,capacity:0,cost:3,risk:-5}},
+          {label:'Consult war risk clause specialists',description:'Engage specialist counsel on the interpretation of the clause.',  effects:{trust:5,revenue:0,capacity:0,cost:10,risk:-10}},
+        ]},
+      { title:'Underwriters Dispute the Trigger',
+        description:'The lead underwriter argues the damage arose from civil unrest, not an act of war. The distinction is worth $40 million.',
+        actions:[
+          {label:'Challenge underwriter position',     description:'Formally contest the civil unrest classification on the client behalf.',effects:{trust:10,revenue:-5,capacity:-5,cost:12,risk:-5}},
+          {label:'Remain neutral pending legal opinion',description:'Hold position until specialist legal opinion is received.',       effects:{trust:0,revenue:0,capacity:0,cost:5,risk:0}},
+          {label:'Propose partial settlement now',     description:'Offer to split the claim to close quickly and preserve relations.',effects:{trust:5,revenue:-8,capacity:5,cost:8,risk:-10}},
+          {label:'Commission independent legal opinion',description:'Appoint respected independent counsel to rule on the clause.',   effects:{trust:8,revenue:-3,capacity:0,cost:12,risk:-12}},
+        ]},
+      { title:'Client Threatens to Go Public',
+        description:'The shipping client has retained a PR firm and is threatening public action unless the claim is paid within 30 days.',
+        actions:[
+          {label:'Accelerate settlement under pressure',description:'Fast-track negotiations to meet the client deadline.',           effects:{trust:8,revenue:-12,capacity:0,cost:5,risk:-8}},
+          {label:'Stand firm regardless of PR threat',  description:'Maintain the legal position and do not be moved by media threat.',effects:{trust:-8,revenue:5,capacity:0,cost:8,risk:8}},
+          {label:'Offer interim payment while disputing',description:'Pay 50% immediately while the remaining amount is contested.', effects:{trust:10,revenue:-10,capacity:0,cost:10,risk:-5}},
+          {label:'Mediation with a neutral party',      description:'Propose binding mediation with an agreed independent mediator.',effects:{trust:8,revenue:-5,capacity:0,cost:10,risk:-10}},
+        ]},
+      { title:'Commercial Court Proceedings Begin',
+        description:'The client has filed in the Commercial Court. Proceedings are now public record.',
+        actions:[
+          {label:'Full legal defence',                 description:'Mount a comprehensive defence of the underwriter position.',      effects:{trust:-5,revenue:0,capacity:-5,cost:18,risk:5}},
+          {label:'Settle before first hearing',        description:'Reach out to client counsel to agree settlement before court.',   effects:{trust:8,revenue:-15,capacity:0,cost:8,risk:-15}},
+          {label:'Propose binding arbitration',        description:'Seek agreement to move the dispute to private arbitration.',      effects:{trust:5,revenue:-5,capacity:0,cost:10,risk:-8}},
+          {label:'Settle in full to avoid precedent',  description:'Pay the full $40M to prevent a court ruling that sets precedent.',effects:{trust:12,revenue:-20,capacity:0,cost:5,risk:-20}},
+        ]},
+      { title:'Market Watching for Precedent',
+        description:'However this resolves, the market is watching. The outcome will influence war risk wording globally.',
+        actions:[
+          {label:'Publish market guidance on clause',  description:'Issue a market circular on war risk clause interpretation.',      effects:{trust:15,revenue:5,capacity:0,cost:8,risk:-15}},
+          {label:'Settle quietly with no statement',   description:'Close the dispute privately without any market communication.',   effects:{trust:0,revenue:0,capacity:5,cost:0,risk:5}},
+          {label:'Advocate for clause review',         description:'Propose a formal market-wide review of war risk wording.',        effects:{trust:12,revenue:-3,capacity:-5,cost:10,risk:-18}},
+          {label:'Absorb and strengthen future wording',description:'Accept the outcome and revise all future policy wording.',       effects:{trust:8,revenue:-5,capacity:5,cost:5,risk:-10}},
+        ]},
+    ]
+  },
+  {
+    id:'red-sea', row:'Aviation & Marine',
+    title:'Red Sea Reroute',
+    domain:'Marine Cargo', focus:'Liability and client relations',
+    premise:'War risk cover has been suspended for Red Sea transit. Your client cargo is already mid-corridor.',
+    objective:'Protect the cargo, resolve the liability dispute, and preserve the client relationship.',
+    initialState:{trust:68,revenue:62,capacity:76,cost:26,risk:44},
+    steps:[
+      { title:'Coverage Suspended Mid-Voyage',
+        description:'War risk underwriters have suspended cover for Red Sea transit. The vessel is in the corridor with no valid insurance.',
+        actions:[
+          {label:'Advise immediate diversion to Cape', description:'Instruct the vessel to divert south around the Cape of Good Hope.',  effects:{trust:8,revenue:-10,capacity:-5,cost:18,risk:-20}},
+          {label:'Source emergency war risk cover',    description:'Seek spot-market war risk cover from specialist underwriters.',      effects:{trust:10,revenue:-8,capacity:0,cost:22,risk:-15}},
+          {label:'Notify client of coverage gap now',  description:'Immediate transparent notification to client of the lapsed cover.',  effects:{trust:12,revenue:-5,capacity:0,cost:5,risk:-5}},
+          {label:'Hold and await corridor reassessment',description:'Keep vessel in position while monitoring the threat level.',         effects:{trust:-5,revenue:0,capacity:0,cost:0,risk:20}},
+        ]},
+      { title:'Client Disputes Liability for Reroute',
+        description:'The client argues your team should have flagged the route risk before departure. They refuse to pay additional freight.',
+        actions:[
+          {label:'Review advice trail and policy',    description:'Conduct immediate audit of all pre-departure advice given.',      effects:{trust:5,revenue:0,capacity:-5,cost:8,risk:-5}},
+          {label:'Accept partial liability',          description:'Acknowledge some responsibility to preserve the relationship.',    effects:{trust:10,revenue:-10,capacity:0,cost:10,risk:-10}},
+          {label:'Escalate to specialist lawyers',    description:'Refer the liability question to specialist marine lawyers.',      effects:{trust:0,revenue:0,capacity:0,cost:15,risk:-5}},
+          {label:'Propose cost-sharing arrangement',  description:'Offer to split the additional freight cost 50/50.',               effects:{trust:8,revenue:-8,capacity:0,cost:12,risk:-8}},
+        ]},
+      { title:'Demurrage Mounting at $90K Per Day',
+        description:'The vessel is nine days into the Cape diversion. Demurrage is accumulating and the destination port has limited berths.',
+        actions:[
+          {label:'Push for fastest port turnaround',   description:'Prioritise rapid discharge and minimise time at berth.',            effects:{trust:5,revenue:5,capacity:-5,cost:-5,risk:-5}},
+          {label:'Negotiate demurrage cap with owner',description:'Approach the shipowner directly to cap the daily demurrage rate.',effects:{trust:8,revenue:-5,capacity:0,cost:-12,risk:-8}},
+          {label:'File demurrage recovery claim',     description:'Submit a formal claim to recover demurrage costs from insurers.',effects:{trust:5,revenue:5,capacity:-5,cost:8,risk:-5}},
+          {label:'Absorb as relationship cost',       description:'Write off the demurrage as a cost of maintaining the client.',     effects:{trust:12,revenue:-15,capacity:0,cost:15,risk:-10}},
+        ]},
+      { title:'Cargo Condition Concerns',
+        description:'The extended voyage has raised questions. Temperature-sensitive cargo may have been compromised by the longer transit.',
+        actions:[
+          {label:'Commission cargo survey at arrival', description:'Appoint an independent surveyor to assess condition on arrival.',   effects:{trust:8,revenue:-5,capacity:0,cost:8,risk:-8}},
+          {label:'Pre-settle cargo claim',             description:'Offer a settlement before survey results to manage exposure.',      effects:{trust:5,revenue:-12,capacity:0,cost:12,risk:-10}},
+          {label:'Advise client to refuse delivery',   description:'Recommend client refuses delivery pending a full condition survey.',effects:{trust:10,revenue:-8,capacity:0,cost:5,risk:-12}},
+          {label:'Source air freight replacement',     description:'Arrange emergency air freight of replacement goods from origin.',   effects:{trust:8,revenue:-10,capacity:-5,cost:20,risk:-8}},
+        ]},
+      { title:'Client Reviews the Relationship',
+        description:'The client is reviewing their entire broking relationship. A formal strategy review meeting has been requested.',
+        actions:[
+          {label:'Full transparent lessons review',    description:'Present a frank account of what went wrong and what changes.',      effects:{trust:18,revenue:-5,capacity:0,cost:5,risk:-15}},
+          {label:'Offer fee rebate and enhanced service',description:'Reduce annual fee and commit to a dedicated account team.',       effects:{trust:12,revenue:-15,capacity:-5,cost:10,risk:-10}},
+          {label:'Present new war risk protocol',      description:'Show a live war risk monitoring system built for this client.',    effects:{trust:15,revenue:-5,capacity:-5,cost:12,risk:-12}},
+          {label:'Defend original advice and hold firm',description:'Maintain that the original advice was sound given available data.',effects:{trust:-12,revenue:5,capacity:5,cost:-5,risk:10}},
+        ]},
+    ]
+  },
+  {
+    id:'checkout', row:'General Business',
+    title:'Checkout Outage After Release',
+    domain:'Product / Ops', focus:'Exploration vs exploitation',
+    premise:'A release broke checkout. Complaints and failed payments are rising fast.',
+    objective:'Restore checkout reliability while preserving customer trust and revenue.',
+    initialState:{trust:70,revenue:65,capacity:75,cost:30,risk:40},
+    steps:[
+      { title:'First Reports Surface',
+        description:'Customers are flooding support with payment failures. The new release is the prime suspect.',
+        actions:[
+          {label:'Roll back release immediately',      description:'Revert to the last stable version without further investigation.',  effects:{trust:10,revenue:5,capacity:-5,cost:8,risk:-15}},
+          {label:'Investigate before acting',          description:'Run diagnostics to confirm root cause before any rollback.',        effects:{trust:-5,revenue:-10,capacity:5,cost:3,risk:5}},
+          {label:'Post status update publicly',        description:'Acknowledge the issue publicly while the team investigates.',       effects:{trust:3,revenue:-5,capacity:0,cost:-2,risk:-3}},
+          {label:'Reroute to backup checkout',         description:'Enable the secondary checkout flow to reduce customer impact.',     effects:{trust:5,revenue:3,capacity:-10,cost:12,risk:-8}},
+        ]},
+      { title:'Root Cause Identified',
+        description:'A misconfigured API gateway is causing intermittent failures during peak load.',
+        actions:[
+          {label:'Hotfix the configuration',           description:'Push a targeted config fix without a full rollback.',               effects:{trust:8,revenue:10,capacity:-5,cost:10,risk:-12}},
+          {label:'Full rollback to previous build',    description:'Completely revert to the last stable build.',                      effects:{trust:6,revenue:6,capacity:5,cost:5,risk:-8}},
+          {label:'Disable via feature flag',           description:'Turn off the offending feature without a new deployment.',         effects:{trust:5,revenue:8,capacity:0,cost:2,risk:-8}},
+          {label:'Scale capacity to absorb load',      description:'Add servers to handle the load while a fix is prepared.',          effects:{trust:0,revenue:2,capacity:15,cost:18,risk:-5}},
+        ]},
+      { title:'Media Coverage Begins',
+        description:'A tech blog published a story. Customer sentiment is souring across social media.',
+        actions:[
+          {label:'CEO transparency post',              description:'Personal statement acknowledging full responsibility.',             effects:{trust:15,revenue:-2,capacity:0,cost:6,risk:-8}},
+          {label:'Proactive refunds to all affected',  description:'Automatic refunds issued without customers needing to request.',   effects:{trust:10,revenue:-12,capacity:0,cost:16,risk:-10}},
+          {label:'No comment until fixed',             description:'Wait until the fix is confirmed before any public statement.',     effects:{trust:-12,revenue:-5,capacity:0,cost:0,risk:12}},
+          {label:'Attribute to infrastructure vendor', description:'Shift framing toward a third-party provider failure.',             effects:{trust:-15,revenue:-5,capacity:0,cost:0,risk:18}},
+        ]},
+      { title:'Systems Restored',
+        description:'Checkout is back at 99.7% uptime. The team debates how to proceed.',
+        actions:[
+          {label:'Publish detailed post-mortem',       description:'Release a public incident report with full technical detail.',     effects:{trust:10,revenue:5,capacity:3,cost:5,risk:-12}},
+          {label:'Internal review only',               description:'Keep the analysis inside the team and minimise public exposure.',  effects:{trust:-5,revenue:5,capacity:5,cost:0,risk:3}},
+          {label:'Invest in expanded monitoring',       description:'Immediate investment in better observability tooling.',            effects:{trust:5,revenue:0,capacity:-5,cost:12,risk:-16}},
+          {label:'Bring in external consultants',       description:'Outside expertise to audit the full system architecture.',        effects:{trust:2,revenue:-5,capacity:0,cost:18,risk:-5}},
+        ]},
+      { title:'Customer Follow-Up Window',
+        description:'Thousands of affected customers never received direct communication about the incident.',
+        actions:[
+          {label:'Detailed transparency email',        description:'Thorough email to all affected users with full context.',          effects:{trust:15,revenue:5,capacity:0,cost:5,risk:-10}},
+          {label:'Discount vouchers for everyone',     description:'Blanket credit issued to all impacted customers.',                 effects:{trust:10,revenue:-15,capacity:0,cost:15,risk:-5}},
+          {label:'Brief apology email',                description:'Short sincere apology to all affected accounts.',                  effects:{trust:5,revenue:2,capacity:0,cost:1,risk:-2}},
+          {label:'No further outreach needed',         description:'Assume the issue is resolved and move on.',                       effects:{trust:-10,revenue:5,capacity:0,cost:-5,risk:8}},
+        ]},
+    ]
+  },
+  {
+    id:'ad-collapse', row:'General Business',
+    title:'Ad Campaign Collapse',
+    domain:'Marketing', focus:'Risk vs reward',
+    premise:'Spend is burning. CTR is 80% below forecast. A brand safety incident has just surfaced.',
+    objective:'Recover campaign performance while protecting brand equity and the Q4 budget.',
+    initialState:{trust:60,revenue:50,capacity:85,cost:20,risk:30},
+    steps:[
+      { title:'Campaign Underperforms',
+        description:'Click-through rate is 80% below forecast. Spend is accelerating but returns are not materialising.',
+        actions:[
+          {label:'Pause all campaign spend',           description:'Stop all spend until the creative has been fully audited.',        effects:{trust:0,revenue:0,capacity:5,cost:-10,risk:-10}},
+          {label:'A/B test new creative variants',     description:'Launch three alternate variants at reduced budget.',               effects:{trust:5,revenue:5,capacity:-5,cost:10,risk:-5}},
+          {label:'Audit audience targeting first',     description:'Review all audience segments before making any spend changes.',    effects:{trust:0,revenue:0,capacity:5,cost:5,risk:-5}},
+          {label:'Double down on spend',               description:'Increase budget and exposure to force volume results.',            effects:{trust:-5,revenue:-5,capacity:0,cost:20,risk:15}},
+        ]},
+      { title:'Brand Safety Incident',
+        description:'Ads appeared next to divisive political content. Screenshots are circulating on social media.',
+        actions:[
+          {label:'Pull all ads immediately',           description:'Emergency halt on all placements across all platforms.',           effects:{trust:15,revenue:-10,capacity:5,cost:-5,risk:-20}},
+          {label:'Issue public apology',               description:'Address the placement directly with a formal brand statement.',   effects:{trust:10,revenue:-5,capacity:0,cost:5,risk:-10}},
+          {label:'Quietly reassign placements',        description:'Move ads to safer placements without public acknowledgment.',      effects:{trust:-5,revenue:0,capacity:0,cost:5,risk:5}},
+          {label:'Wait and monitor closely',           description:'Watch the situation but take no immediate action.',               effects:{trust:-15,revenue:-5,capacity:0,cost:0,risk:15}},
+        ]},
+      { title:'Agency Relationship Strained',
+        description:'The media agency is blamed internally. Leadership is questioning the entire partnership.',
+        actions:[
+          {label:'Restructure the contract',           description:'Renegotiate with stronger performance guarantees and penalties.',  effects:{trust:5,revenue:0,capacity:0,cost:-10,risk:-5}},
+          {label:'Switch agencies this quarter',       description:'Begin an immediate transition to a new media partner.',            effects:{trust:5,revenue:5,capacity:-5,cost:15,risk:-10}},
+          {label:'Build fully in-house',               description:'End the agency relationship and build internal creative capacity.',effects:{trust:0,revenue:0,capacity:-15,cost:5,risk:5}},
+          {label:'Tie all pay to results',             description:'Keep the agency but move entirely to performance-based fees.',     effects:{trust:10,revenue:5,capacity:0,cost:0,risk:-10}},
+        ]},
+      { title:'Q4 Budget Under Scrutiny',
+        description:'The CFO is reviewing all ad allocations. The rest of Q4 spend is up for reallocation.',
+        actions:[
+          {label:'Reallocate to proven channels',      description:'Shift budget to search and email where ROI is confirmed.',         effects:{trust:5,revenue:10,capacity:5,cost:-10,risk:-10}},
+          {label:'Cut overall spend by 30%',           description:'Reduce the total marketing investment for the remainder of Q4.',   effects:{trust:-5,revenue:0,capacity:10,cost:-20,risk:-5}},
+          {label:'Invest in long-term brand building', description:'Shift from performance spend to brand-building investment.',       effects:{trust:15,revenue:-5,capacity:0,cost:10,risk:0}},
+          {label:'Double down on performance',         description:'Increase lower-funnel conversion spend to recover the quarter.',   effects:{trust:0,revenue:10,capacity:0,cost:10,risk:10}},
+        ]},
+      { title:'Relaunch Decision',
+        description:'The campaign window is closing. The team must decide how to finish Q4.',
+        actions:[
+          {label:'Soft relaunch with daily monitoring', description:'Re-enter at 20% budget with daily performance check-ins.',        effects:{trust:10,revenue:10,capacity:-5,cost:10,risk:-5}},
+          {label:'Full relaunch with new message',      description:'Return at full spend with completely new creative strategy.',      effects:{trust:5,revenue:15,capacity:-5,cost:15,risk:10}},
+          {label:'Delay the campaign to Q1',            description:'Preserve remaining budget and relaunch with a fresh strategy.',   effects:{trust:0,revenue:-5,capacity:10,cost:-10,risk:-15}},
+          {label:'Co-campaign with a partner brand',    description:'Share cost and audience reach with a complementary partner.',     effects:{trust:10,revenue:10,capacity:0,cost:5,risk:-5}},
+        ]},
+    ]
+  },
+  {
+    id:'engineer-exit', row:'General Business',
+    title:'Key Engineer Resignation',
+    domain:'Engineering / HR', focus:'Knowledge preservation',
+    premise:'Your lead engineer has resigned. Two critical systems exist only in their head.',
+    objective:'Retain institutional knowledge and sustain engineering velocity through the transition.',
+    initialState:{trust:68,revenue:62,capacity:72,cost:28,risk:42},
+    steps:[
+      { title:'Resignation Handed In',
+        description:'The engineer has given two weeks notice. Their systems handle auth and the billing pipeline.',
+        actions:[
+          {label:'Counter-offer immediately',          description:'Make a competitive retention offer on the spot.',                  effects:{trust:10,revenue:0,capacity:5,cost:18,risk:-12}},
+          {label:'Accept and plan handover',           description:'Acknowledge the decision and initiate structured knowledge transfer.',effects:{trust:8,revenue:0,capacity:-5,cost:5,risk:-5}},
+          {label:'Request extended notice period',     description:'Negotiate a longer transition window with the engineer.',          effects:{trust:5,revenue:0,capacity:5,cost:8,risk:-8}},
+          {label:'Restrict access as precaution',      description:'Begin graduated access controls as a standard security measure.',  effects:{trust:-15,revenue:0,capacity:0,cost:5,risk:5}},
+        ]},
+      { title:'Knowledge Gap Assessment',
+        description:'A full audit reveals three undocumented services and tens of thousands of lines of uncommented code.',
+        actions:[
+          {label:'Daily pair-programming sessions',    description:'Engineer shadows two senior colleagues intensively each day.',     effects:{trust:5,revenue:-5,capacity:-10,cost:5,risk:-15}},
+          {label:'Full documentation sprint',          description:'Block all feature work for five days to document every system.',   effects:{trust:5,revenue:-10,capacity:-15,cost:5,risk:-20}},
+          {label:'Hire a knowledge consultant',        description:'External expert maps and documents the entire codebase.',          effects:{trust:0,revenue:-5,capacity:-5,cost:18,risk:-10}},
+          {label:'Document the critical path only',    description:'Focus exclusively on the two mission-critical systems.',           effects:{trust:0,revenue:-5,capacity:-5,cost:5,risk:-8}},
+        ]},
+      { title:'Team Morale Dips',
+        description:'The wider team is unsettled. Two engineers are rumoured to be weighing up competing offers.',
+        actions:[
+          {label:'Proactive salary review for all',    description:'Commission a full compensation review for every engineer.',        effects:{trust:15,revenue:-5,capacity:5,cost:20,risk:-15}},
+          {label:'Open team retrospective',            description:'Facilitate an honest forum on culture, workload and direction.',   effects:{trust:12,revenue:0,capacity:5,cost:2,risk:-8}},
+          {label:'Fast-track two internal promotions', description:'Promote the two strongest candidates to signal growth opportunity.',effects:{trust:10,revenue:0,capacity:0,cost:10,risk:-10}},
+          {label:'Stay focused on delivery',           description:'Maintain sprint commitments and do not acknowledge the concern.',  effects:{trust:-12,revenue:5,capacity:-5,cost:0,risk:12}},
+        ]},
+      { title:'Replacement Hire Decision',
+        description:'The position must be filled. The choice will shape engineering culture for years.',
+        actions:[
+          {label:'Promote internally',                 description:'Elevate the strongest internal candidate into the role.',          effects:{trust:12,revenue:0,capacity:-5,cost:5,risk:-5}},
+          {label:'Senior external hire',               description:'Hire an experienced engineer with deep relevant domain knowledge.', effects:{trust:5,revenue:0,capacity:5,cost:18,risk:-8}},
+          {label:'Two mid-level hires',                description:'Split the role across two new engineers to reduce single-point risk.',effects:{trust:5,revenue:-5,capacity:10,cost:18,risk:-5}},
+          {label:'Redistribute across existing team',  description:'Absorb the responsibilities into the current team for now.',       effects:{trust:-8,revenue:5,capacity:-10,cost:-5,risk:10}},
+        ]},
+      { title:'Post-Transition Stability',
+        description:'Six weeks on, systems are documented. The question now is how to prevent this happening again.',
+        actions:[
+          {label:'Mandate shared system ownership',    description:'Every critical system must have two engineers who fully own it.',  effects:{trust:10,revenue:0,capacity:-5,cost:5,risk:-18}},
+          {label:'Cross-functional guild model',       description:'Introduce engineering guilds with collective system responsibility.',effects:{trust:8,revenue:0,capacity:-5,cost:8,risk:-15}},
+          {label:'Documentation gates on all PRs',     description:'No code merges without documentation meeting a defined standard.', effects:{trust:5,revenue:-5,capacity:-5,cost:3,risk:-10}},
+          {label:'Return to previous process',         description:'Resume standard practices without structural change.',             effects:{trust:-5,revenue:5,capacity:5,cost:-3,risk:8}},
+        ]},
+    ]
+  },
+  {
+    id:'privacy-audit', row:'General Business',
+    title:'Data Privacy Audit',
+    domain:'Compliance', focus:'Long-term consequences',
+    premise:'Regulators have requested a full data audit. Your team has just found internal problems.',
+    objective:'Navigate the audit, remediate the issues, and emerge with regulatory trust intact.',
+    initialState:{trust:70,revenue:65,capacity:74,cost:24,risk:36},
+    steps:[
+      { title:'Internal Discovery',
+        description:'Your DPO has found three instances of data being retained well beyond policy limits.',
+        actions:[
+          {label:'Self-report to regulator immediately',description:'Proactively disclose all findings before being asked.',           effects:{trust:15,revenue:-5,capacity:0,cost:10,risk:-20}},
+          {label:'Remediate before disclosing',        description:'Fix every issue first, then disclose a clean remediation.',       effects:{trust:5,revenue:-5,capacity:-10,cost:10,risk:-5}},
+          {label:'Legal review before any action',     description:'Assess full legal exposure before taking any external step.',     effects:{trust:0,revenue:0,capacity:0,cost:8,risk:0}},
+          {label:'Treat as minor - no disclosure',     description:'Classify findings as minor and exclude from formal disclosure.',  effects:{trust:-15,revenue:5,capacity:0,cost:0,risk:20}},
+        ]},
+      { title:'Regulator Requests Records',
+        description:'A formal data request has arrived. The scope is considerably broader than expected.',
+        actions:[
+          {label:'Full transparent response',          description:'Provide all records with a clear and honest explanatory memo.',    effects:{trust:14,revenue:-5,capacity:-5,cost:10,risk:-18}},
+          {label:'Provide the minimum required',       description:'Respond strictly to the letter of the request, nothing more.',    effects:{trust:-5,revenue:0,capacity:0,cost:5,risk:8}},
+          {label:'Request scope clarification',        description:'Formally ask the regulator to narrow the request before responding.',effects:{trust:0,revenue:0,capacity:0,cost:5,risk:0}},
+          {label:'Engage specialist privacy counsel',  description:'Specialist lawyers manage the entire response end to end.',       effects:{trust:5,revenue:-5,capacity:0,cost:20,risk:-10}},
+        ]},
+      { title:'Press Inquiry Arrives',
+        description:'A journalist is asking questions. It appears someone inside the organisation has spoken to the press.',
+        actions:[
+          {label:'Proactive press statement',          description:'Issue a factual statement ahead of the story running.',            effects:{trust:12,revenue:-5,capacity:0,cost:5,risk:-12}},
+          {label:'No comment during active audit',     description:'Decline all press enquiries while the audit is ongoing.',         effects:{trust:-8,revenue:0,capacity:0,cost:0,risk:5}},
+          {label:'Investigate the leak first',         description:'Run an internal investigation before any external response.',     effects:{trust:-5,revenue:0,capacity:-5,cost:8,risk:5}},
+          {label:'Off-record background briefing',     description:'Brief the journalist privately to shape the framing.',            effects:{trust:5,revenue:5,capacity:0,cost:5,risk:-5}},
+        ]},
+      { title:'Remediation Plan Required',
+        description:'The regulator expects a comprehensive remediation plan within 30 days.',
+        actions:[
+          {label:'Comprehensive data policy overhaul', description:'Full reform of all data retention, access and processing policies.',effects:{trust:14,revenue:-5,capacity:-10,cost:18,risk:-20}},
+          {label:'Fix only the flagged instances',     description:'Address specifically and only the items cited in the request.',    effects:{trust:5,revenue:0,capacity:-5,cost:8,risk:-5}},
+          {label:'Third-party privacy certification',  description:'External firm validates, certifies and signs off all remediation.',effects:{trust:10,revenue:-5,capacity:0,cost:15,risk:-15}},
+          {label:'Staff compliance training only',     description:'Roll out training without making any system-level changes.',      effects:{trust:3,revenue:0,capacity:-3,cost:5,risk:-3}},
+        ]},
+      { title:'Audit Conclusion',
+        description:'The regulator has reviewed the remediation. A final determination is pending.',
+        actions:[
+          {label:'Publish binding privacy commitments', description:'Public statement of binding, auditable data privacy principles.',  effects:{trust:18,revenue:5,capacity:0,cost:8,risk:-15}},
+          {label:'Accept any fine and move on',        description:'Pay without contesting and close the matter cleanly.',             effects:{trust:5,revenue:-15,capacity:0,cost:15,risk:-12}},
+          {label:'Contest the findings formally',      description:'File a formal challenge to the regulatory conclusions.',           effects:{trust:-15,revenue:0,capacity:-5,cost:20,risk:15}},
+          {label:'Quiet private resolution',           description:'Accept terms privately with no public acknowledgment.',            effects:{trust:0,revenue:0,capacity:5,cost:10,risk:-8}},
+        ]},
+    ]
+  },
+];
 
-        <div class="settings-panel">
-             <h2 class="settings-title">Simulation Settings</h2>
-             <div class="settings-grid">
-                 <div class="setting-group">
-                     <label for="num-bandits">Number of Bandits (K)</label>
-                     <input type="number" id="num-bandits" min="2" max="20" value="5">
-                 </div>
-                 <div class="setting-group">
-                     <label for="true-reward-variance">Reward SD
-                          <span class="tooltip">
-                             <span class="tooltip-icon">?</span>
-                             <span class="tooltip-text">Standard deviation of the underlying reward distribution for each bandit (rewards drawn from Normal(μ, σ)).</span>
-                         </span>
-                     </label>
-                     <input type="number" id="true-reward-variance" min="0.1" max="10" step="0.1" value="1.0">
-                 </div>
-                 <div class="setting-group">
-                     <label for="algorithm">Algorithm</label>
-                     <select id="algorithm">
-                         <option value="epsilon-greedy">ε-Greedy</option>
-                         <option value="ucb">UCB1</option>
-                         <option value="thompson">Thompson Sampling (Beta)</option>
-                     </select>
-                 </div>
-                 <div class="setting-group epsilon-param">
-                     <label for="epsilon">Epsilon (ε)
-                          <span class="tooltip">
-                             <span class="tooltip-icon">?</span>
-                             <span class="tooltip-text">Probability (0 to 1) of choosing a random bandit (exploration) instead of the current best estimated bandit (exploitation).</span>
-                         </span>
-                     </label>
-                     <input type="number" id="epsilon" min="0" max="1" step="0.01" value="0.1">
-                 </div>
-                 <div class="setting-group ucb-param hidden">
-                     <label for="ucb-c">UCB Confidence (c)
-                          <span class="tooltip">
-                             <span class="tooltip-icon">?</span>
-                             <span class="tooltip-text">Controls the exploration bonus in UCB1. Higher 'c' values encourage more exploration of less-pulled bandits. Common value is 2.</span>
-                         </span>
-                     </label>
-                     <input type="number" id="ucb-c" min="0.1" max="5" step="0.1" value="2">
-                 </div>
-             </div>
+/* RL ENGINE */
+const dc=o=>JSON.parse(JSON.stringify(o));
+const clampV=(v,a,b)=>Math.max(a,Math.min(b,v));
+const clampState=s=>({trust:clampV(s.trust||0,0,100),revenue:clampV(s.revenue||0,0,100),capacity:clampV(s.capacity||0,0,100),cost:clampV(s.cost||0,0,100),risk:clampV(s.risk||0,0,100)});
+const stateScore=s=>(s.trust*0.30+s.revenue*0.25+s.capacity*0.20+(100-s.cost)*0.15+(100-s.risk)*0.10)/100;
+const rewardScore=(b,a)=>+((stateScore(a)-stateScore(b))*10).toFixed(4);
+const bkt=v=>v<34?'L':v<67?'M':'H';
+const sbkt=s=>`${bkt(s.trust)}${bkt(s.revenue)}${bkt(s.capacity)}${bkt(s.cost)}${bkt(s.risk)}`;
+const qKey=(si,s)=>`${si}|${sbkt(s)}`;
+const ensureQ=(qt,si,s,n)=>{const k=qKey(si,s);if(!qt[k])qt[k]=new Array(n).fill(0.01);return k;};
+const safeStep=(sc,si)=>sc&&sc.steps&&si>=0&&si<sc.steps.length?sc.steps[si]:null;
+const applyAction=(sc,si,ai,cur)=>{
+  const step=safeStep(sc,si);if(!step||!step.actions||ai<0||ai>=step.actions.length)return null;
+  const a=step.actions[ai];if(!a||!a.effects)return null;
+  const e=a.effects;
+  const ns=clampState({trust:(cur.trust||0)+(e.trust||0),revenue:(cur.revenue||0)+(e.revenue||0),capacity:(cur.capacity||0)+(e.capacity||0),cost:(cur.cost||0)+(e.cost||0),risk:(cur.risk||0)+(e.risk||0)});
+  return{newState:ns,reward:rewardScore(cur,ns),effects:e,action:a};
+};
+const bestImmediate=(sc,si,s)=>{
+  const step=safeStep(sc,si);if(!step)return 0;
+  return step.actions.reduce((best,_,i)=>{const r=applyAction(sc,si,i,s);return r&&r.reward>best?r.reward:best;},-Infinity);
+};
+const train=(sc,eps=800)=>{
+  const qt={},alpha=0.15,gamma=0.88;
+  for(let ep=0;ep<eps;ep++){
+    const e=Math.max(0.05,0.9*Math.pow(0.993,ep));let s=dc(sc.initialState);
+    for(let si=0;si<sc.steps.length;si++){
+      const step=sc.steps[si];if(!step)break;
+      const n=step.actions.length,k=ensureQ(qt,si,s,n);
+      const ai=Math.random()<e?Math.floor(Math.random()*n):qt[k].indexOf(Math.max(...qt[k]));
+      const res=applyAction(sc,si,ai,s);if(!res)break;
+      let maxNQ=0;
+      if(si+1<sc.steps.length){const ns2=sc.steps[si+1];if(ns2){const nk=ensureQ(qt,si+1,res.newState,ns2.actions.length);maxNQ=Math.max(...qt[nk]);}}
+      qt[k][ai]=qt[k][ai]+alpha*(res.reward+gamma*maxNQ-qt[k][ai]);
+      s=res.newState;
+    }
+  }
+  return qt;
+};
+const agentPolicy=(qt,sc,si,s)=>{
+  const step=safeStep(sc,si);if(!step)return null;
+  const k=ensureQ(qt,si,s,step.actions.length);const qv=qt[k];
+  if(!qv||!qv.length)return null;
+  return qv.indexOf(Math.max(...qv));
+};
+const updateQ=(qt,sc,si,ai,sb,sa,reward)=>{
+  const step=safeStep(sc,si);if(!step)return{oldQ:0,newQ:0,key:''};
+  const k=ensureQ(qt,si,sb,step.actions.length);const alpha=0.15,gamma=0.88;
+  let maxNQ=0;
+  if(si+1<sc.steps.length){const ns=sc.steps[si+1];if(ns){const nk=ensureQ(qt,si+1,sa,ns.actions.length);maxNQ=Math.max(...qt[nk]);}}
+  const oq=qt[k][ai];const nq=oq+alpha*(reward+gamma*maxNQ-oq);qt[k][ai]=nq;
+  return{oldQ:+oq.toFixed(3),newQ:+nq.toFixed(3),key:k};
+};
+const agentTotal=(sc,qt)=>{
+  let s=dc(sc.initialState),tot=0;
+  for(let i=0;i<sc.steps.length;i++){
+    const ai=agentPolicy(qt,sc,i,s);if(ai===null)break;
+    const r=applyAction(sc,i,ai,s);if(!r)break;
+    tot+=r.reward;s=r.newState;
+  }
+  return+tot.toFixed(2);
+};
 
-             <div class="button-group">
-                 <button id="initialize-btn" class="btn-primary">Initialize Bandits</button>
-                 <button id="reset-btn" class="btn-secondary">Reset Simulation</button>
-                 <button id="auto-run-btn" class="btn-secondary">Auto-Run</button>
-                  <input type="number" id="auto-run-pulls" value="100" min="1" max="10000" style="width: 70px; padding: 0.5rem; height: auto;">
-                  <label for="auto-run-pulls" style="margin-bottom: 0;">pulls</label>
-             </div>
-         </div>
+/* HELPERS */
+const VARS=['trust','revenue','capacity','cost','risk'];
+const VSHRT={trust:'TR',revenue:'REV',capacity:'CAP',cost:'CST',risk:'RSK'};
+const rewCol=r=>r>=1.5?P.green:r>=0?P.amber:P.red;
+const rewBg=r=>r>=1.5?P.greenL:r>=0?P.amberL:P.redL;
+const barCol=(k,v)=>(k==='cost'||k==='risk')?(v>66?P.red:v>33?P.amber:P.green):(v>66?P.green:v>33?P.amber:P.red);
+const dirOf=reg=>reg<0.05?{t:'Optimal',c:P.green}:reg<0.4?{t:'Solid',c:P.green}:reg<0.9?{t:'Mixed',c:P.amber}:reg<1.8?{t:'Suboptimal',c:P.amber}:{t:'Costly',c:P.red};
+const fmtD=v=>v>0?`+${v}`:`${v}`;
+const trunc=(s,n)=>s&&s.length>n?s.slice(0,n)+'...':(s||'');
 
-        <div id="bandit-container" class="bandit-arena">
-            <!-- Bandit cards will be inserted here -->
-        </div>
-
-        <div class="results-panel hidden" id="results-panel">
-             <h2 class="results-title">Simulation Results</h2>
-             <div class="results-grid">
-                  <div class="result-card"> <div class="result-label">Total Reward</div> <div class="result-value" id="total-reward">0</div> </div>
-                  <div class="result-card"> <div class="result-label">Avg Reward</div> <div class="result-value" id="avg-reward">0.000</div> </div>
-                  <div class="result-card"> <div class="result-label">Optimal %</div> <div class="result-value" id="optimal-percent">0%</div> </div>
-                  <div class="result-card"> <div class="result-label">Regret</div> <div class="result-value" id="cumulative-regret">0.00</div> </div>
-             </div>
-
-             <h3 style="margin-top: 1.5rem; margin-bottom: 0.75rem; color: var(--primary-dark); transition: color 0.3s ease;">Action Log</h3>
-             <div class="log-container" id="action-log">
-                 <!-- Log entries will be inserted here -->
-             </div>
-         </div>
-
-        <div class="charts-container hidden" id="charts-container">
-              <div class="chart-card">
-                  <h3 class="chart-title">Average Reward Over Time</h3>
-                  <div id="final-avg-reward-display" class="chart-summary-display">
-                      Current Avg Reward: <span class="value">0.000</span>
-                  </div>
-                  <canvas id="rewards-chart"></canvas>
-              </div>
-              <div class="chart-card">
-                  <h3 class="chart-title">Bandit Selection Frequency</h3>
-                  <!-- Bandit Selection Summary Display -->
-                  <div id="selection-summary" class="chart-summary-display">
-                       <!-- Content dynamically added by JS -->
-                  </div>
-                   <!-- End Display Area -->
-                  <canvas id="selection-chart"></canvas>
-             </div>
-              <!-- Uncomment this section to add the regret chart -->
-              <!--
-              <div class="chart-card">
-                  <h3 class="chart-title">Cumulative Regret Over Time</h3>
-                  <canvas id="regret-chart"></canvas>
-              </div>
-              -->
-         </div>
-
-    </div> <!-- End of .container -->
-
-    <!-- Cookie Consent Banner -->
-    <div id="cookie-consent-banner" style="display: none;">
-        <span>This website uses cookies & analytics to understand user behavior and improve the simulator. By clicking "Accept", you consent to their use.</span>
-        <div>
-            <button id="consent-accept-btn" class="btn-primary">Accept</button>
-            <button id="consent-decline-btn" class="btn-secondary">Decline</button>
-        </div>
+/* BASE COMPONENTS */
+function Label({children,color=P.muted,size=10,style={}}){
+  return <span style={{fontFamily:MONO,fontSize:size,fontWeight:500,letterSpacing:'0.12em',textTransform:'uppercase',color,...style}}>{children}</span>;
+}
+function Tag({children}){
+  return <span style={{display:'inline-flex',alignItems:'center',padding:'3px 10px',borderRadius:20,fontSize:11,fontFamily:SANS,border:`1px solid ${P.border}`,color:P.muted,whiteSpace:'nowrap',background:P.white}}>{children}</span>;
+}
+function Pill({children,col=P.accent,bg=P.accentL}){
+  return <span style={{display:'inline-flex',alignItems:'center',padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:500,fontFamily:MONO,letterSpacing:'0.08em',background:bg,color:col,border:`1px solid ${col}55`}}>{children}</span>;
+}
+function Chip({label,val}){
+  if(!val||val===0)return null;
+  const bad=(label==='cost'||label==='risk')?val>0:val<0;
+  return <span style={{fontFamily:MONO,fontSize:9,fontWeight:500,padding:'2px 6px',borderRadius:3,background:bad?P.redL:P.greenL,color:bad?P.red:P.green,border:`1px solid ${bad?P.red:P.green}33`}}>{VSHRT[label]} {fmtD(val)}</span>;
+}
+function EffectChips({effects}){
+  return <div style={{display:'flex',flexWrap:'wrap',gap:4}}>{VARS.map(k=><Chip key={k} label={k} val={(effects||{})[k]}/>)}</div>;
+}
+function StatBar({k,v}){
+  return <div style={{flex:'1 1 70px',minWidth:0,background:P.white,border:`1px solid ${P.border}`,borderRadius:6,padding:'8px 12px'}}>
+    <Label size={9} color={P.dim} style={{display:'block',marginBottom:4}}>{k}</Label>
+    <div style={{fontFamily:MONO,fontSize:17,fontWeight:500,color:P.text,lineHeight:1}}>{v}</div>
+    <div style={{marginTop:6,height:2,background:P.s2,borderRadius:1,overflow:'hidden'}}>
+      <div style={{height:'100%',width:`${v}%`,background:barCol(k,v),borderRadius:1,transition:'width 0.5s ease'}}/>
     </div>
-    <!-- End Cookie Consent Banner -->
+  </div>;
+}
+function Card({children,style={},className=''}){
+  return <div className={className} style={{background:P.white,border:`1px solid ${P.border}`,borderRadius:10,...style}}>{children}</div>;
+}
+function GhostBtn({children,onClick,full=false}){
+  const[h,setH]=useState(false);
+  return <button onClick={onClick} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
+    style={{width:full?'100%':undefined,display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:'9px 18px',background:h?P.s1:'transparent',color:h?P.sub:P.muted,border:`1px solid ${h?P.border2:P.border}`,borderRadius:6,fontFamily:SANS,fontSize:13,fontWeight:500,cursor:'pointer',transition:'all 0.18s'}}>{children}</button>;
+}
+function PrimaryBtn({children,onClick}){
+  const[h,setH]=useState(false);
+  return <button onClick={onClick} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
+    style={{display:'inline-flex',alignItems:'center',gap:8,padding:'11px 28px',background:h?P.text:P.accent,color:P.white,border:'none',borderRadius:7,fontFamily:SANS,fontSize:14,fontWeight:600,cursor:'pointer',transition:'all 0.18s',boxShadow:h?`0 4px 20px ${P.accent}44`:`0 2px 10px ${P.accent}22`,transform:h?'translateY(-1px)':'none'}}>{children}</button>;
+}
 
+/* BRANCH GRAPH */
+function BranchGraph({run,selectedNode,onNodeClick}){
+  const nodes=run.graphNodes,total=run.scenario.steps.length;
+  if(nodes.length===0)return(
+    <Card>
+      <div style={{padding:'13px 20px',borderBottom:`1px solid ${P.border}`}}><Label>Decision graph</Label></div>
+      <div style={{padding:'36px',textAlign:'center',color:P.dim,fontFamily:SERIF,fontSize:17,fontStyle:'italic'}}>Make your first decision. The graph builds step by step.</div>
+    </Card>
+  );
+  const PAD=68,COLW=168,H=310,yA=58,yC=155,yG=252,rC=17,rS=7,rG=8;
+  const W=PAD+(total+2)*COLW;
+  const stageX=PAD-30;
+  const legends=[{col:P.green,label:'Helped'},{col:P.amber,label:'Mixed'},{col:P.red,label:'Hurt'},{col:P.accent,label:'Agent pref',ring:true},{col:P.dim,label:'Alt branch',ghost:true}];
+  return(
+    <Card>
+      <div style={{padding:'13px 20px',borderBottom:`1px solid ${P.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
+        <Label>Decision graph</Label>
+        <div style={{display:'flex',gap:16,flexWrap:'wrap',alignItems:'center'}}>
+          {legends.map(({col,label,ring,ghost})=>(
+            <span key={label} style={{display:'flex',alignItems:'center',gap:5,fontSize:11,color:P.muted,fontFamily:SANS}}>
+              <span style={{width:8,height:8,borderRadius:'50%',flexShrink:0,background:ghost?'transparent':col,border:(ring||ghost)?`2px solid ${col}`:'none'}}/>
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div style={{overflowX:'auto',padding:'6px 0 14px'}}>
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{display:'block',minWidth:W}}>
+          <rect x={stageX} y={yA-28} width={W-stageX-COLW*0.5} height={yG-yA+68} rx={10} fill={P.s1} opacity={0.55}/>
+          {[[yA,'ALT'],[yC,'YOU'],[yG,'AGT']].map(([y,lbl])=>(
+            <g key={y}>
+              <line x1={stageX+8} y1={y} x2={W-COLW*0.4} y2={y} stroke={P.border} strokeWidth={0.75} strokeDasharray="2,10"/>
+              <text x={stageX+12} y={y+4} fill={P.dim} fontSize={8.5} fontFamily={MONO} letterSpacing="0.1em">{lbl}</text>
+            </g>
+          ))}
+          <circle cx={PAD-20} cy={yC} r={5} fill={P.s3} stroke={P.border2} strokeWidth={1.5}/>
+          <line x1={PAD-20} y1={yC} x2={PAD-2} y2={yC} stroke={P.border2} strokeWidth={1.5}/>
+          {nodes.map((nd,i)=>{
+            const x=PAD+(i+1)*COLW,px=i===0?PAD-20:PAD+i*COLW;
+            const col=rewCol(nd.reward),isSel=selectedNode===i;
+            const sameAgent=nd.agentIdx===nd.chosenIdx||nd.agentIdx===null;
+            const cpx=(px+x)/2,dir=dirOf(nd.regret);
+            const rewLabel=(nd.reward>=0?'+':'')+nd.reward.toFixed(2);
+            const lblW=dir.t.length*5.5+12,lblH=14;
+            return(
+              <g key={i}>
+                <path d={`M${px},${yC} C${cpx},${yC} ${cpx},${yC} ${x},${yC}`} fill="none" stroke={col} strokeWidth={3.5} opacity={0.85}/>
+                {nd.altIdx!==null&&nd.altIdx!==nd.chosenIdx&&(
+                  <g>
+                    <line x1={x} y1={yA+rS} x2={x} y2={yC-rC} stroke={P.border} strokeWidth={0.75} strokeDasharray="2,4" opacity={0.5}/>
+                    <path d={`M${px},${yC} C${px+55},${yC-80} ${x-55},${yA+35} ${x},${yA}`} fill="none" stroke={P.border2} strokeWidth={1.2} strokeDasharray="3,5" opacity={0.5}/>
+                    <circle cx={x} cy={yA} r={rS} fill={P.s2} stroke={P.border2} strokeWidth={1.5} style={{cursor:'pointer'}} onClick={()=>onNodeClick(i)}/>
+                    <text x={x} y={yA-rS-5} textAnchor="middle" fill={P.dim} fontSize={8} fontFamily={MONO}>{trunc(nd.altLabel||'',13)}</text>
+                  </g>
+                )}
+                {!sameAgent&&(
+                  <g>
+                    <line x1={x} y1={yC+rC} x2={x} y2={yG-rG} stroke={P.accent} strokeWidth={0.75} strokeDasharray="2,4" opacity={0.45}/>
+                    <path d={`M${px},${yC} C${px+55},${yC+80} ${x-55},${yG-35} ${x},${yG}`} fill="none" stroke={P.accent} strokeWidth={1.5} strokeDasharray="4,3" opacity={0.5}/>
+                    <circle cx={x} cy={yG} r={rG} fill={P.accentL} stroke={P.accent} strokeWidth={2} style={{cursor:'pointer'}} onClick={()=>onNodeClick(i)}/>
+                    <text x={x} y={yG+rG+13} textAnchor="middle" fill={P.accent} fontSize={8} fontFamily={MONO}>{trunc(nd.agentLabel||'',13)}</text>
+                  </g>
+                )}
+                {isSel&&<>
+                  <circle cx={x} cy={yC} r={rC+10} fill="none" stroke={col} strokeWidth={2} opacity={0.15}/>
+                  <circle cx={x} cy={yC} r={rC+5} fill="none" stroke={col} strokeWidth={1.5} opacity={0.28}/>
+                </>}
+                <circle cx={x} cy={yC} r={rC} fill={col} stroke={isSel?P.text:'rgba(255,255,255,0.35)'} strokeWidth={isSel?2.5:1.5} style={{cursor:'pointer',filter:isSel?`drop-shadow(0 3px 10px ${col}99)`:`drop-shadow(0 1px 4px ${col}55)`}} onClick={()=>onNodeClick(i)}/>
+                <text x={x} y={yC+4} textAnchor="middle" fill="rgba(255,255,255,0.92)" fontSize={9} fontFamily={MONO} fontWeight="500" style={{pointerEvents:'none'}}>{rewLabel}</text>
+                <rect x={x-lblW/2} y={yC-rC-lblH-8} width={lblW} height={lblH} rx={4} fill={dir.c} opacity={0.12}/>
+                <text x={x} y={yC-rC-lblH/2-8+4.5} textAnchor="middle" fill={dir.c} fontSize={9} fontFamily={SANS} fontWeight="600">{dir.t}</text>
+                <text x={x} y={yC+rC+16} textAnchor="middle" fill={P.muted} fontSize={8.5} fontFamily={MONO}>S{i+1}</text>
+                <text x={x} y={yC+rC+28} textAnchor="middle" fill={P.sub} fontSize={8.5} fontFamily={SANS}>{trunc(nd.chosenLabel||'',14)}</text>
+              </g>
+            );
+          })}
+          {nodes.length>0&&(()=>{
+            const fx=PAD+(nodes.length+1)*COLW,lpx=PAD+nodes.length*COLW;
+            const avgR=run.totalReward/Math.max(1,nodes.length),fc=rewCol(avgR);
+            const isFSel=selectedNode==='final',d=15,lcpx=(lpx+fx)/2;
+            return <g>
+              <path d={`M${lpx},${yC} C${lcpx},${yC} ${lcpx},${yC} ${fx},${yC}`} fill="none" stroke={fc} strokeWidth={3.5} opacity={0.85}/>
+              {isFSel&&<rect x={fx-(d+10)} y={yC-(d+10)} width={(d+10)*2} height={(d+10)*2} fill="none" stroke={fc} strokeWidth={1.5} opacity={0.18} rx={3} transform={`rotate(45 ${fx} ${yC})`}/>}
+              <rect x={fx-d} y={yC-d} width={d*2} height={d*2} fill={fc} stroke={isFSel?P.text:'rgba(255,255,255,0.35)'} strokeWidth={isFSel?2.5:1.5} transform={`rotate(45 ${fx} ${yC})`} style={{cursor:'pointer',filter:isFSel?`drop-shadow(0 3px 12px ${fc}99)`:`drop-shadow(0 1px 5px ${fc}55)`}} onClick={()=>onNodeClick('final')}/>
+              <text x={fx} y={yC+4} textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize={8.5} fontFamily={MONO} fontWeight="500" style={{pointerEvents:'none'}}>{(run.totalReward>=0?'+':'')+run.totalReward.toFixed(1)}</text>
+              <text x={fx} y={yC+d+17} textAnchor="middle" fill={P.muted} fontSize={9} fontFamily={MONO}>FINAL</text>
+              <text x={fx} y={yC+d+29} textAnchor="middle" fill={P.sub} fontSize={8.5} fontFamily={SANS}>Outcome</text>
+            </g>;
+          })()}
+        </svg>
+      </div>
+    </Card>
+  );
+}
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <script>
-        // --- State --- (Unchanged)
-        const state = { bandits: [], trueRewards: [], estimatedRewards: [], counts: [], totalReward: 0, totalPulls: 0, optimalActions: 0, cumulativeRegret: 0, rewardsHistory: [], actionsHistory: [], regretHistory: [], rewardsChart: null, selectionChart: null, regretChart: null, optimalBandit: -1, autoRunInterval: null, thompsonPriors: [], isRunning: false };
+/* NODE DETAIL */
+function NodeDetail({run,selectedNode}){
+  if(selectedNode===null)return(
+    <Card><div style={{padding:'20px 22px',textAlign:'center',color:P.dim,fontFamily:SERIF,fontSize:17,fontStyle:'italic'}}>Click any node in the graph above to inspect that decision</div></Card>
+  );
+  if(selectedNode==='final'){
+    const agR=agentTotal(run.scenario,run.qtable),gap=run.totalReward-agR;
+    return(
+      <Card className="anim-fade">
+        <div style={{padding:'20px 22px'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
+            <Label color={P.accent}>Final outcome node</Label>
+            <Pill col={gap>=0?P.green:P.red} bg={gap>=0?P.greenL:P.redL}>{gap>=0?'Beat agent':'Below agent'}</Pill>
+          </div>
+          <h3 style={{fontFamily:SERIF,fontSize:21,fontWeight:500,fontStyle:'italic',color:P.text,marginBottom:16,lineHeight:1.2}}>This node summarises the full path you ended up taking.</h3>
+          <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+            {[{label:'Your reward',val:run.totalReward.toFixed(2),c:P.text},{label:'Agent reward',val:agR,c:P.accent},{label:'Gap',val:(gap>=0?'+':'')+gap.toFixed(2),c:gap>=0?P.green:P.red}].map(({label,val,c})=>(
+              <div key={label} style={{flex:'1 1 90px',minWidth:0,background:P.s1,border:`1px solid ${P.border}`,borderRadius:6,padding:'10px 14px'}}>
+                <Label size={9} style={{display:'block',marginBottom:4}}>{label}</Label>
+                <div style={{fontFamily:MONO,fontSize:17,fontWeight:500,color:c}}>{val}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
+    );
+  }
+  const nd=run.graphNodes[selectedNode];if(!nd)return null;
+  const stepObj=safeStep(run.scenario,selectedNode);
+  const choAct=stepObj&&stepObj.actions?stepObj.actions[nd.chosenIdx]:null;
+  const agAct=nd.agentIdx!==null&&stepObj&&stepObj.actions?stepObj.actions[nd.agentIdx]:null;
+  const dir=dirOf(nd.regret),rc=rewCol(nd.reward);
+  const regCol=nd.regret>1?P.red:nd.regret>0.3?P.amber:P.green;
+  return(
+    <Card className="anim-fade">
+      <div style={{padding:'20px 22px'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,flexWrap:'wrap',gap:8}}>
+          <Label color={P.accent}>Step {selectedNode+1}{stepObj?` — ${stepObj.title}`:''}</Label>
+          <Pill col={dir.c} bg={rewBg(nd.reward)}>{dir.t}</Pill>
+        </div>
+        <h3 style={{fontFamily:SERIF,fontSize:20,fontWeight:500,fontStyle:'italic',color:P.text,marginBottom:14,lineHeight:1.2,wordBreak:'break-word'}}>{choAct?choAct.label:''}</h3>
+        <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:14}}>
+          {[{label:'Reward',val:nd.reward.toFixed(3),c:rc},{label:'Regret',val:nd.regret.toFixed(3),c:regCol}].map(({label,val,c})=>(
+            <div key={label} style={{flex:'1 1 80px',minWidth:0,background:P.s1,border:`1px solid ${P.border}`,borderRadius:6,padding:'10px 14px'}}>
+              <Label size={9} style={{display:'block',marginBottom:4}}>{label}</Label>
+              <div style={{fontFamily:MONO,fontSize:17,fontWeight:500,color:c}}>{val}</div>
+            </div>
+          ))}
+          <div style={{flex:'2 1 140px',minWidth:0,background:P.s1,border:`1px solid ${P.border}`,borderRadius:6,padding:'10px 14px'}}>
+            <Label size={9} style={{display:'block',marginBottom:4}}>Agent preferred</Label>
+            <div style={{fontSize:13,color:P.accent,fontFamily:SANS,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{agAct?agAct.label:'Same choice'}</div>
+          </div>
+        </div>
+        {choAct&&<EffectChips effects={choAct.effects}/>}
+      </div>
+    </Card>
+  );
+}
 
-        // --- DOM Elements --- (Add selectionSummaryDisplay)
-        const numBanditsInput = document.getElementById('num-bandits');
-        const rewardVarianceInput = document.getElementById('true-reward-variance');
-        const algorithmSelect = document.getElementById('algorithm');
-        const epsilonInput = document.getElementById('epsilon');
-        const ucbCInput = document.getElementById('ucb-c');
-        const initializeBtn = document.getElementById('initialize-btn');
-        const resetBtn = document.getElementById('reset-btn');
-        const autoRunBtn = document.getElementById('auto-run-btn');
-        const autoRunPullsInput = document.getElementById('auto-run-pulls');
-        const banditContainer = document.getElementById('bandit-container');
-        const resultsPanel = document.getElementById('results-panel');
-        const chartsContainer = document.getElementById('charts-container');
-        const totalRewardDisplay = document.getElementById('total-reward');
-        const avgRewardDisplay = document.getElementById('avg-reward');
-        const optimalPercentDisplay = document.getElementById('optimal-percent');
-        const cumulativeRegretDisplay = document.getElementById('cumulative-regret');
-        const actionLog = document.getElementById('action-log');
-        const themeToggleButton = document.getElementById('theme-toggle-btn');
-        const finalAvgRewardSpan = document.getElementById('final-avg-reward-display')?.querySelector('span');
-        const selectionSummaryDisplay = document.getElementById('selection-summary'); // Added
+/* FEEDBACK */
+function Feedback({fb}){
+  if(!fb)return null;
+  const rc=fb.reward>1?P.green:fb.reward>0?P.amber:P.red;
+  const rgc=fb.regret>0.5?P.amber:P.green;
+  return(
+    <Card className="anim-fade">
+      <div style={{padding:'14px 20px',display:'flex',gap:16,alignItems:'flex-start',flexWrap:'wrap'}}>
+        <div style={{flex:'2 1 160px',minWidth:0}}>
+          <Label size={9} style={{display:'block',marginBottom:4}}>Latest outcome</Label>
+          <div style={{fontSize:13,color:P.text,lineHeight:1.5,wordBreak:'break-word'}}>
+            <span style={{fontWeight:600}}>{fb.chosenAction}</span>{' — '}
+            <span style={{color:rc,fontFamily:MONO,fontWeight:500}}>{fb.reward>=0?'+':''}{fb.reward.toFixed(2)}</span>
+            {' reward / regret '}
+            <span style={{color:rgc,fontFamily:MONO,fontWeight:500}}>{fb.regret.toFixed(2)}</span>
+          </div>
+        </div>
+        <div style={{flex:'2 1 140px',minWidth:0}}>
+          <Label size={9} style={{display:'block',marginBottom:4}}>Agent preferred</Label>
+          <div style={{fontSize:13,color:P.sub,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{fb.agentAction}</div>
+        </div>
+        <div style={{flex:'1 1 160px',minWidth:0,fontFamily:MONO,fontSize:10.5,color:P.muted,lineHeight:1.8,background:P.s1,border:`1px solid ${P.border}`,borderRadius:6,padding:'8px 12px'}}>
+          Q-update{'\n'}<span style={{color:P.sub}}>{fb.qKey}</span>{'\n'}{fb.oldQ} to {fb.newQ}
+        </div>
+      </div>
+    </Card>
+  );
+}
 
-        // --- Constants --- (Unchanged)
-        const MAX_LOG_ENTRIES = 200;
-        const MAX_CHART_POINTS = 500;
-        const AUTO_RUN_INTERVAL_MS = 50;
-        const CONSENT_KEY = 'kBanditCookieConsent';
+/* HISTORY RAIL */
+function HistoryRail({run,selectedNode,onNodeClick}){
+  if(!run.history.length)return null;
+  return(
+    <div>
+      <Label size={9} style={{display:'block',marginBottom:10}}>Past decisions</Label>
+      <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:6}}>
+        {run.history.map((h,i)=>{
+          const rc=rewCol(h.reward),rcb=rewBg(h.reward),sel=selectedNode===i;
+          return(
+            <div key={i} onClick={()=>onNodeClick(i)}
+              style={{flexShrink:0,width:176,minWidth:0,background:P.white,border:`1.5px solid ${sel?P.accent:P.border}`,borderRadius:7,padding:'11px 13px',cursor:'pointer',transition:'border-color 0.18s'}}>
+              <Label size={9} color={P.accent} style={{display:'block',marginBottom:3}}>Step {i+1}</Label>
+              <div style={{fontSize:12,fontWeight:600,color:P.text,lineHeight:1.3,marginBottom:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.actionLabel}</div>
+              <div style={{fontSize:11,color:P.muted,marginBottom:7,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.stepTitle}</div>
+              <div style={{display:'flex',gap:5}}>
+                <span style={{fontFamily:MONO,fontSize:10,fontWeight:500,padding:'2px 7px',borderRadius:3,background:rcb,color:rc,border:`1px solid ${rc}33`}}>{h.reward>=0?'+':''}{h.reward.toFixed(1)}</span>
+                <span style={{fontFamily:MONO,fontSize:10,fontWeight:500,padding:'2px 7px',borderRadius:3,background:P.s1,color:P.muted}}>rgr {h.regret.toFixed(1)}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
-        // --- Helper Functions --- (Unchanged)
-        function normalRandom(mean = 0, stdDev = 1) { let u = 0, v = 0; while (u === 0) u = Math.random(); while (v === 0) v = Math.random(); const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v); return z * stdDev + mean; }
-        function gammaRandom(alpha, beta = 1) { if (alpha < 1) { return gammaRandom(alpha + 1, beta) * Math.pow(Math.random(), 1.0 / alpha); } const d = alpha - 1.0 / 3.0; const c = 1.0 / Math.sqrt(9.0 * d); let Z, V, U; while (true) { do { Z = normalRandom(0, 1); V = 1.0 + c * Z; } while (V <= 0.0); V = V * V * V; U = Math.random(); if (U < 1.0 - 0.0331 * (Z * Z) * (Z * Z)) { return (d * V) / beta; } if (Math.log(U) < 0.5 * Z * Z + d * (1.0 - V + Math.log(V))) { return (d * V) / beta; } } }
-        function betaRandom(alpha, beta) { const ga = gammaRandom(alpha, 1); const gb = gammaRandom(beta, 1); return (ga + gb === 0) ? 0.5 : ga / (ga + gb); }
-        function argmax(arr) { if (!arr || arr.length === 0) return -1; return arr.reduce((bestIndex, currentValue, currentIndex, array) => currentValue > array[bestIndex] ? currentIndex : bestIndex, 0); }
+/* ACTION CARD */
+function ActionCard({action:a,isRec,onChoose}){
+  const[hov,setHov]=useState(false);
+  return(
+    <div onClick={onChoose} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+      style={{background:hov?P.s1:P.white,border:`1.5px solid ${isRec?P.accent:hov?P.border2:P.border}`,borderRadius:8,padding:'14px 16px',cursor:'pointer',transition:'all 0.18s',display:'flex',flexDirection:'column',gap:7,position:'relative',transform:hov?'translateY(-1px)':'none',boxShadow:hov?'0 4px 18px rgba(0,0,0,0.07)':'none',minWidth:0}}>
+      {isRec&&<div style={{position:'absolute',top:0,left:0,width:'100%',height:2,background:P.accent,borderRadius:'8px 8px 0 0'}}/>}
+      {isRec&&<div style={{paddingTop:4}}><Pill>Agent recommends</Pill></div>}
+      <div style={{fontSize:13.5,fontWeight:600,color:P.text,lineHeight:1.3,wordBreak:'break-word'}}>{a.label}</div>
+      <div style={{fontSize:12,color:P.muted,lineHeight:1.55,fontFamily:SERIF,fontStyle:'italic',wordBreak:'break-word'}}>{a.description}</div>
+      <EffectChips effects={a.effects}/>
+    </div>
+  );
+}
 
-        // --- Cookie Consent Logic --- (Unchanged)
-        function showConsentBanner() { const banner = document.getElementById('cookie-consent-banner'); if (banner) banner.style.display = 'flex'; }
-        function hideConsentBanner() { const banner = document.getElementById('cookie-consent-banner'); if (banner) banner.style.display = 'none'; }
-        function handleConsentAccept() { console.log("Consent Accepted"); localStorage.setItem(CONSENT_KEY, 'granted'); if (typeof gtag === 'function') { gtag('consent', 'update', { 'analytics_storage': 'granted' }); gtag('event', 'consent_granted', {'event_category': 'Consent'}); } else { console.warn("gtag function not found for consent update."); } hideConsentBanner(); }
-        function handleConsentDecline() { console.log("Consent Declined"); localStorage.setItem(CONSENT_KEY, 'denied'); if (typeof gtag === 'function') { gtag('consent', 'update', { 'analytics_storage': 'denied' }); gtag('event', 'consent_denied', {'event_category': 'Consent'}); } else { console.warn("gtag function not found for consent update."); } hideConsentBanner(); }
-        function checkConsent() { const consent = localStorage.getItem(CONSENT_KEY); if (!consent) { showConsentBanner(); } else if (consent === 'granted') { console.log("Existing consent: Granted"); if (typeof gtag === 'function') gtag('consent', 'update', { 'analytics_storage': 'granted' }); } else { console.log("Existing consent: Denied"); if (typeof gtag === 'function') gtag('consent', 'update', { 'analytics_storage': 'denied' }); } const acceptBtn = document.getElementById('consent-accept-btn'); const declineBtn = document.getElementById('consent-decline-btn'); if (acceptBtn) acceptBtn.addEventListener('click', handleConsentAccept); if (declineBtn) declineBtn.addEventListener('click', handleConsentDecline); }
+/* STEP CARD */
+function StepCard({run,onChoose}){
+  const sc=run.scenario,si=run.stepIdx,step=safeStep(sc,si);
+  if(!step)return null;
+  const agRec=agentPolicy(run.qtable,sc,si,run.cur);
+  return(
+    <Card className="anim-slide">
+      <div style={{padding:'22px 24px 16px',borderBottom:`1px solid ${P.border}`}}>
+        <Label size={10} color={P.accent} style={{display:'block',marginBottom:6}}>Step {si+1} of {sc.steps.length}</Label>
+        <h2 style={{fontFamily:SERIF,fontWeight:500,fontSize:26,color:P.text,lineHeight:1.1,marginBottom:8}}>{step.title}</h2>
+        <p style={{color:P.muted,fontSize:14,lineHeight:1.7,fontFamily:SERIF,fontStyle:'italic'}}>{step.description}</p>
+      </div>
+      <div style={{padding:'14px 24px',borderBottom:`1px solid ${P.border}`,display:'flex',gap:8,flexWrap:'wrap'}}>
+        {VARS.map(k=><StatBar key={k} k={k} v={run.cur[k]}/>)}
+      </div>
+      <div style={{padding:'18px 24px 22px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+        {step.actions.map((a,i)=><ActionCard key={i} action={a} isRec={i===agRec} onChoose={()=>onChoose(i)}/>)}
+      </div>
+    </Card>
+  );
+}
 
-        // --- Theme Toggle --- (Ensure button text updates)
-        function applyTheme(theme) {
-             if (theme === 'dark') {
-                 document.body.classList.add('dark-mode');
-                 themeToggleButton.textContent = '☀️ Light Mode'; // Updated text
-                 themeToggleButton.classList.remove('btn-secondary'); // Adjust classes if needed
-                 themeToggleButton.classList.add('btn-primary'); // Example: Use primary in dark mode
-             } else {
-                 document.body.classList.remove('dark-mode');
-                 themeToggleButton.textContent = '🌙 Dark Mode'; // Updated text
-                 themeToggleButton.classList.remove('btn-primary');
-                 themeToggleButton.classList.add('btn-secondary');
-             }
-             updateChartThemes(theme); // Update charts after applying body class
-        }
-        function updateChartThemes(theme) {
-             try {
-                 const isDark = theme === 'dark';
-                 const computedStyle = getComputedStyle(document.body);
-                 const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-                 // Use updated variables, ensure fallbacks
-                 const labelColor = (isDark ? computedStyle.getPropertyValue('--dark-text-secondary').trim() : computedStyle.getPropertyValue('--gray').trim()) || (isDark ? '#9ca3af' : '#6b7280');
-                 const titleColor = (isDark ? computedStyle.getPropertyValue('--dark-text').trim() : computedStyle.getPropertyValue('--primary-dark').trim()) || (isDark ? '#f9fafb' : '#15803d');
+/* RAIL */
+function Rail({run,phase,onReset}){
+  const sc=run.scenario,done=run.history.length,total=sc.steps.length;
+  const isComplete=phase==='complete';
+  const agR=isComplete?agentTotal(sc,run.qtable):0;
+  const gap=run.totalReward-agR;
+  return(
+    <div style={{width:242,flexShrink:0,background:P.s1,borderRight:`1px solid ${P.border}`,display:'flex',flexDirection:'column',overflowY:'auto',overflowX:'hidden'}}>
+      <div style={{padding:'24px 20px',flex:1,display:'flex',flexDirection:'column',gap:16,position:'relative'}}>
+        <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${P.accent},transparent)`}}/>
+        <div>
+          <Label size={9} color={P.accent} style={{display:'block',marginBottom:8}}>Active scenario</Label>
+          <h2 style={{fontFamily:SERIF,fontSize:20,fontWeight:500,color:P.text,lineHeight:1.2,wordBreak:'break-word'}}>{sc.title}</h2>
+        </div>
+        <div style={{fontSize:12,color:P.muted,lineHeight:1.6,padding:'10px 12px',background:P.white,border:`1px solid ${P.border}`,borderRadius:6,fontFamily:SERIF,fontStyle:'italic',wordBreak:'break-word'}}>{sc.objective}</div>
+        <div style={{display:'flex',flexWrap:'wrap',gap:5}}><Tag>{sc.domain}</Tag><Tag>{sc.focus}</Tag></div>
+        <div>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:6,alignItems:'center'}}>
+            <Label size={9}>Progress</Label>
+            <span style={{fontFamily:MONO,fontSize:12,color:P.sub}}>{done}/{total}</span>
+          </div>
+          <div style={{height:4,background:P.s3,borderRadius:2,overflow:'hidden'}}>
+            <div style={{height:'100%',width:`${Math.round(done/total*100)}%`,background:P.accent,borderRadius:2,transition:'width 0.4s ease'}}/>
+          </div>
+        </div>
+        <div style={{background:P.white,border:`1px solid ${P.border}`,borderRadius:6,padding:'10px 14px'}}>
+          <Label size={9} style={{display:'block',marginBottom:4}}>Cumulative regret</Label>
+          <div style={{fontFamily:MONO,fontSize:20,fontWeight:500,color:run.totalRegret>2?P.red:run.totalRegret<0.3?P.green:P.amber}}>{run.totalRegret.toFixed(2)}</div>
+        </div>
+        {isComplete&&(
+          <div style={{borderTop:`1px solid ${P.border}`,paddingTop:14}}>
+            <Label size={9} style={{display:'block',marginBottom:10}}>Run summary</Label>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {[{label:'Your reward',val:run.totalReward.toFixed(2),c:P.text},{label:'Agent reward',val:agR,c:P.accent},{label:'Gap vs agent',val:(gap>=0?'+':'')+gap.toFixed(2),c:gap>=0?P.green:P.red}].map(({label,val,c})=>(
+                <div key={label} style={{background:P.white,border:`1px solid ${P.border}`,borderRadius:6,padding:'9px 13px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,minWidth:0}}>
+                  <Label size={9}>{label}</Label>
+                  <span style={{fontFamily:MONO,fontSize:14,fontWeight:500,color:c,flexShrink:0}}>{val}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div style={{marginTop:'auto',paddingTop:14,borderTop:`1px solid ${P.border}`}}>
+          <GhostBtn onClick={onReset} full>Reset and switch</GhostBtn>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-                 [state.rewardsChart, state.selectionChart, state.regretChart].forEach(chart => {
-                     if (chart?.options?.scales) {
-                         try {
-                             Object.values(chart.options.scales).forEach(scale => {
-                                 if (scale) {
-                                     if (scale.grid) { scale.grid.color = gridColor; scale.grid.borderColor = gridColor; }
-                                     if (scale.ticks) { scale.ticks.color = labelColor; }
-                                     if (scale.title) { scale.title.color = titleColor; }
-                                 }
-                             });
-                             // Legend is hidden for selection chart, so this is safe
-                             if (chart.options.plugins?.legend?.labels) {
-                                chart.options.plugins.legend.labels.color = labelColor;
-                             }
-                             chart.update('none');
-                         } catch (updateError) { console.error("Error updating chart theme specifics:", updateError, chart.canvas?.id); }
-                     }
-                 });
-             } catch (themeError) { console.error("Error in updateChartThemes:", themeError); }
-        }
-        themeToggleButton.addEventListener('click', () => { const newTheme = document.body.classList.contains('dark-mode') ? 'light' : 'dark'; localStorage.setItem('bandit-theme', newTheme); applyTheme(newTheme); if (typeof gtag === 'function') { gtag('event', 'toggle_theme', { 'event_category': 'Interface', 'new_theme': newTheme }); } });
+/* WORKSPACE */
+function Workspace({run,phase,selectedNode,onChoose,onReset,onNodeClick}){
+  const isComplete=phase==='complete';
+  return(
+    <div style={{display:'flex',height:'100vh',overflow:'hidden',background:P.bg}}>
+      <Rail run={run} phase={phase} onReset={onReset}/>
+      <div style={{flex:1,overflowY:'auto',overflowX:'hidden',display:'flex',flexDirection:'column',gap:16,padding:'24px'}}>
+        {isComplete?(
+          <>
+            <div style={{background:P.white,border:`1px solid ${P.border}`,borderRadius:10,padding:'16px 22px'}}>
+              <Label size={9} style={{display:'block',marginBottom:5}}>Run complete</Label>
+              <p style={{fontSize:13,color:P.muted,fontFamily:SERIF,fontStyle:'italic'}}>Click any node in the graph to inspect how each decision shaped the outcome.</p>
+            </div>
+            <BranchGraph run={run} selectedNode={selectedNode} onNodeClick={onNodeClick}/>
+            <NodeDetail run={run} selectedNode={selectedNode}/>
+            <Feedback fb={run.latestFb}/>
+            <HistoryRail run={run} selectedNode={selectedNode} onNodeClick={onNodeClick}/>
+          </>
+        ):(
+          <>
+            <StepCard run={run} onChoose={onChoose}/>
+            <BranchGraph run={run} selectedNode={selectedNode} onNodeClick={onNodeClick}/>
+            {run.latestFb&&<Feedback fb={run.latestFb}/>}
+            {selectedNode!==null&&<NodeDetail run={run} selectedNode={selectedNode}/>}
+            <HistoryRail run={run} selectedNode={selectedNode} onNodeClick={onNodeClick}/>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
-        // --- Simulation Logic --- (Unchanged)
-        function initializeBandits(numBandits, rewardVariance) { state.bandits = []; state.trueRewards = []; state.estimatedRewards = Array(numBandits).fill(0); state.counts = Array(numBandits).fill(0); state.thompsonPriors = Array(numBandits).fill(null).map(() => ({ alpha: 1, beta: 1 })); state.regretHistory = [0]; state.totalReward = 0; state.totalPulls = 0; state.optimalActions = 0; state.cumulativeRegret = 0; state.rewardsHistory = [0]; state.actionsHistory = []; let maxMean = -Infinity; state.optimalBandit = -1; for (let i = 0; i < numBandits; i++) { const trueMean = normalRandom(0, 1); state.trueRewards.push({ mean: trueMean, stdDev: rewardVariance }); state.bandits.push({ id: i, pulls: 0, totalReward: 0, averageReward: 0 }); if (trueMean > maxMean) { maxMean = trueMean; state.optimalBandit = i; } } if (state.optimalBandit === -1 && numBandits > 0) { state.optimalBandit = state.trueRewards.reduce((bestIndex, currentReward, currentIndex) => currentReward.mean > state.trueRewards[bestIndex].mean ? currentIndex : bestIndex, 0); } console.log("Initialized Bandits. Optimal Bandit:", state.optimalBandit + 1, "Mean:", state.trueRewards[state.optimalBandit]?.mean.toFixed(3)); }
+/* LANDING */
+const ROWS=['Aviation & Marine','General Business'];
 
-        // --- Reset Simulation State --- (Reset selection summary)
-        function resetSimulationState() {
-             stopAutoRun();
-             state.bandits = []; state.trueRewards = []; state.estimatedRewards = []; state.counts = []; state.totalReward = 0; state.totalPulls = 0; state.optimalActions = 0; state.cumulativeRegret = 0; state.rewardsHistory = []; state.actionsHistory = []; state.thompsonPriors = []; state.regretHistory = []; state.optimalBandit = -1; state.isRunning = false;
-             banditContainer.innerHTML = ''; actionLog.innerHTML = '';
-             ['rewardsChart', 'selectionChart', 'regretChart'].forEach(chartName => { if (state[chartName]?.destroy) { try { state[chartName].destroy(); } catch (e) { console.error(`Error destroying ${chartName}:`, e); } } state[chartName] = null; });
-             updateResults(); // Reset result panel values
-             if (finalAvgRewardSpan) finalAvgRewardSpan.textContent = '0.000';
-             updateSelectionSummary(); // Reset selection summary display
-             resultsPanel.classList.add('hidden'); chartsContainer.classList.add('hidden');
-             setControlsEnabled(true);
-             console.log("Simulation Reset.");
-        }
+function ScenarioCard({sc,sel,onSelect}){
+  const[hov,setHov]=useState(false);
+  return(
+    <div onClick={()=>onSelect(sc.id)} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+      style={{background:sel?P.white:hov?P.white:P.s1,border:`1.5px solid ${sel?P.accent:hov?P.border2:P.border}`,borderRadius:9,padding:'16px',cursor:'pointer',transition:'all 0.18s',display:'flex',flexDirection:'column',gap:8,position:'relative',transform:hov&&!sel?'translateY(-2px)':'none',boxShadow:sel?`0 0 0 3px ${P.accentM},0 4px 16px rgba(58,91,217,0.1)`:hov?'0 4px 12px rgba(0,0,0,0.07)':'none'}}>
+      {sel&&<div style={{position:'absolute',top:0,left:0,right:0,height:3,background:P.accent,borderRadius:'9px 9px 0 0'}}/>}
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8}}>
+        <div style={{fontSize:12.5,fontWeight:600,color:P.text,fontFamily:SANS,lineHeight:1.3,flex:1,minWidth:0}}>{sc.title}</div>
+        {sel&&<div style={{flexShrink:0,width:7,height:7,borderRadius:'50%',background:P.accent,marginTop:4}}/>}
+      </div>
+      <div style={{fontSize:11.5,color:P.muted,lineHeight:1.5,fontFamily:SERIF,fontStyle:'italic',overflow:'hidden',display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical'}}>{sc.premise}</div>
+      <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:'auto',paddingTop:4}}>
+        <Tag>{sc.domain}</Tag>
+        <Tag>{sc.steps.length} steps</Tag>
+      </div>
+    </div>
+  );
+}
 
-        // --- Set Controls Enabled --- (Unchanged)
-        function setControlsEnabled(enabled) { [initializeBtn, algorithmSelect, numBanditsInput, rewardVarianceInput, epsilonInput, ucbCInput, autoRunBtn, autoRunPullsInput] .forEach(el => { if(el) el.disabled = !enabled; }); resetBtn.disabled = state.isRunning; banditContainer.querySelectorAll('.bandit-action').forEach(btn => { btn.disabled = !enabled || state.isRunning; }); const algorithm = algorithmSelect?.value; if (algorithm) { const epsilonGroupInput = document.querySelector('.epsilon-param input'); const ucbGroupInput = document.querySelector('.ucb-param input'); if (epsilonGroupInput) epsilonGroupInput.disabled = (algorithm !== 'epsilon-greedy') || !enabled; if (ucbGroupInput) ucbGroupInput.disabled = (algorithm !== 'ucb') || !enabled; } }
+function Landing({selectedId,onSelect,onStart}){
+  const sc=SCENARIOS.find(s=>s.id===selectedId)||SCENARIOS[0];
+  return(
+    <div style={{maxWidth:1280,margin:'0 auto',padding:'32px 32px 48px',minHeight:'100vh',display:'flex',flexDirection:'column',gap:28}}>
+      <div style={{paddingBottom:24,borderBottom:`1px solid ${P.border}`,display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:20,flexWrap:'wrap'}}>
+        <div>
+          <Label size={10} color={P.accent} style={{display:'block',marginBottom:10}}>RL Branch Explorer</Label>
+          <h1 style={{fontFamily:SERIF,fontWeight:500,fontSize:'clamp(30px,4vw,52px)',lineHeight:1.05,color:P.text}}>Sequential decisions.<br/><em>Real consequences.</em></h1>
+        </div>
+        <p style={{color:P.muted,fontSize:14,fontFamily:SERIF,fontStyle:'italic',lineHeight:1.7,maxWidth:300}}>Pick a scenario. Make decisions step by step. Compare your path against the trained RL agent.</p>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'300px 1fr',gap:24,alignItems:'start'}}>
+        <Card style={{position:'relative'}}>
+          <div style={{position:'absolute',top:0,left:0,right:0,height:3,borderRadius:'10px 10px 0 0',background:`linear-gradient(90deg,${P.accent},transparent)`}}/>
+          <div style={{padding:'26px 22px',display:'flex',flexDirection:'column',gap:18}}>
+            <div>
+              <Label size={9} style={{display:'block',marginBottom:8}}>Selected</Label>
+              <h2 style={{fontFamily:SERIF,fontSize:22,fontWeight:500,lineHeight:1.15,color:P.text,wordBreak:'break-word'}}>{sc.title}</h2>
+              <p style={{color:P.muted,fontSize:13,lineHeight:1.7,marginTop:8,fontFamily:SERIF,fontStyle:'italic'}}>{sc.premise}</p>
+            </div>
+            <div style={{background:P.s1,border:`1px solid ${P.border}`,borderRadius:7,padding:'12px 14px'}}>
+              <Label size={9} color={P.accent} style={{display:'block',marginBottom:5}}>Objective</Label>
+              <p style={{fontSize:12.5,color:P.text,lineHeight:1.6,wordBreak:'break-word'}}>{sc.objective}</p>
+            </div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+              <Tag>{sc.domain}</Tag><Tag>{sc.steps.length} steps</Tag><Tag>{sc.focus}</Tag>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <div style={{flex:'0 0 auto',background:P.s1,border:`1px solid ${P.border}`,borderRadius:6,padding:'10px 16px'}}>
+                <Label size={9} style={{display:'block',marginBottom:3}}>Steps</Label>
+                <div style={{fontFamily:MONO,fontSize:18,fontWeight:500,color:P.text}}>{sc.steps.length}</div>
+              </div>
+              <div style={{flex:'0 0 auto',background:P.s1,border:`1px solid ${P.border}`,borderRadius:6,padding:'10px 16px'}}>
+                <Label size={9} style={{display:'block',marginBottom:3}}>Status</Label>
+                <div style={{fontFamily:MONO,fontSize:13,fontWeight:500,color:P.green}}>Ready</div>
+              </div>
+            </div>
+            <PrimaryBtn onClick={onStart}>Initialize scenario</PrimaryBtn>
+            <div style={{fontSize:11.5,color:P.dim,lineHeight:1.7,fontFamily:SERIF,fontStyle:'italic',paddingTop:4,borderTop:`1px solid ${P.border}`}}>The RL agent trains 800 episodes on your chosen scenario before the run begins.</div>
+          </div>
+        </Card>
+        <div style={{display:'flex',flexDirection:'column',gap:20}}>
+          {ROWS.map(rowLabel=>{
+            const rowScenarios=SCENARIOS.filter(s=>s.row===rowLabel);
+            return(
+              <div key={rowLabel}>
+                <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
+                  <Label size={9} color={P.accent}>{rowLabel}</Label>
+                  <div style={{flex:1,height:1,background:P.border}}/>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+                  {rowScenarios.map(s=>(
+                    <ScenarioCard key={s.id} sc={s} sel={s.id===selectedId} onSelect={onSelect}/>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-        // --- Pull Arm --- (Unchanged)
-        function pullArm(armIndex) { if (state.isRunning && state.totalPulls > 20000) { console.warn("Auto-run safety break triggered at 20k pulls."); stopAutoRun(); return; } if (armIndex < 0 || armIndex >= state.bandits.length) { console.error("Invalid arm index:", armIndex); return; } const reward = normalRandom(state.trueRewards[armIndex].mean, state.trueRewards[armIndex].stdDev); state.bandits[armIndex].pulls++; state.bandits[armIndex].totalReward += reward; state.bandits[armIndex].averageReward = state.bandits[armIndex].totalReward / state.bandits[armIndex].pulls; state.counts[armIndex]++; state.estimatedRewards[armIndex] = state.bandits[armIndex].averageReward; state.thompsonPriors[armIndex].alpha = Math.max(1, state.thompsonPriors[armIndex].alpha + (reward > 0 ? 1 : 0)); state.thompsonPriors[armIndex].beta = Math.max(1, state.thompsonPriors[armIndex].beta + (reward <= 0 ? 1 : 0)); state.totalReward += reward; state.totalPulls++; if (armIndex === state.optimalBandit) { state.optimalActions++; } let instantRegret = 0; if (state.optimalBandit !== -1) { instantRegret = state.trueRewards[state.optimalBandit].mean - state.trueRewards[armIndex].mean; state.cumulativeRegret += instantRegret; } state.rewardsHistory.push(reward); state.actionsHistory.push(armIndex); state.regretHistory[state.totalPulls] = state.cumulativeRegret; updateBanditStats(armIndex); updateResults(); addLogEntry(armIndex, reward); updateCharts(); }
+/* APP */
+function App(){
+  const[phase,setPhase]=useState('landing');
+  const[selectedId,setSelectedId]=useState(SCENARIOS[0].id);
+  const[run,setRun]=useState(null);
+  const[selectedNode,setSelectedNode]=useState(null);
 
-        // --- Algorithm Selection --- (Unchanged)
-        function selectArm() { const algorithm = algorithmSelect.value; const unpulled = state.counts.findIndex(count => count === 0); if (unpulled !== -1 && algorithm !== 'thompson') { return unpulled; } const currentTotalPulls = Math.max(1, state.totalPulls); switch (algorithm) { case 'epsilon-greedy': return epsilonGreedy(); case 'ucb': return ucb(currentTotalPulls); case 'thompson': return thompsonSampling(); default: console.warn("Unknown algorithm, defaulting to ε-Greedy."); return epsilonGreedy(); } }
-        function epsilonGreedy() { const epsilon = parseFloat(epsilonInput.value); if (isNaN(epsilon)) { console.warn("Invalid epsilon value"); return 0;} if (Math.random() < epsilon) { return Math.floor(Math.random() * state.bandits.length); } else { const maxEstReward = Math.max(...state.estimatedRewards); const bestArms = state.estimatedRewards.reduce((indices, reward, index, arr) => { if (Math.abs(reward - maxEstReward) < 1e-9) indices.push(index); return indices; }, []); return bestArms.length > 0 ? bestArms[Math.floor(Math.random() * bestArms.length)] : 0; } }
-        function ucb(currentTotalPulls) { const c = parseFloat(ucbCInput.value); if (isNaN(c)) { console.warn("Invalid UCB c value"); return 0;} const ucbValues = state.estimatedRewards.map((value, index) => { if (state.counts[index] === 0) { return Infinity; } const explorationTerm = c * Math.sqrt(Math.log(currentTotalPulls) / state.counts[index]); return value + explorationTerm; }); const maxUcbValue = Math.max(...ucbValues.filter(v => isFinite(v))); let bestArms = ucbValues.reduce((indices, ucbVal, index, arr) => { if (isFinite(ucbVal) && Math.abs(ucbVal - maxUcbValue) < 1e-9) { indices.push(index); } return indices; }, []); if (bestArms.length === 0) { const finiteIndices = ucbValues.map((v,i) => isFinite(v) ? i : -1).filter(i => i !== -1); return finiteIndices.length > 0 ? finiteIndices[Math.floor(Math.random() * finiteIndices.length)] : 0; } return bestArms[Math.floor(Math.random() * bestArms.length)]; }
-        function thompsonSampling() { const sampledValues = state.thompsonPriors.map(prior => { return betaRandom(prior.alpha, prior.beta); }); const maxSampledValue = Math.max(...sampledValues); const bestArms = sampledValues.reduce((indices, sample, index, arr) => { if (sample === maxSampledValue) indices.push(index); return indices; }, []); return bestArms.length > 0 ? bestArms[Math.floor(Math.random() * bestArms.length)] : 0; }
+  const handleStart=useCallback(()=>{
+    const sc=SCENARIOS.find(s=>s.id===selectedId)||SCENARIOS[0];
+    setRun({scenario:sc,qtable:train(sc),stepIdx:0,cur:dc(sc.initialState),history:[],graphNodes:[],latestFb:null,totalReward:0,totalRegret:0});
+    setSelectedNode(null);setPhase('running');
+  },[selectedId]);
 
-        // --- Auto Run --- (Unchanged)
-        function startAutoRun() { if (state.isRunning) return; if (state.bandits.length === 0) { alert('Please initialize bandits first'); return; } state.isRunning = true; setControlsEnabled(false); autoRunBtn.textContent = 'Stop Run'; let pullsToRun = parseInt(autoRunPullsInput.value) || 100; pullsToRun = Math.max(1, Math.min(pullsToRun, 20000)); autoRunPullsInput.value = pullsToRun; let pullsCompleted = 0; console.log(`Starting auto-run for ${pullsToRun} pulls.`); if (typeof gtag === 'function') { gtag('event', 'start_autorun', { 'event_category': 'SimulationControl', 'num_pulls': pullsToRun, 'algorithm': algorithmSelect.value }); } state.autoRunInterval = setInterval(() => { if (pullsCompleted >= pullsToRun || !state.isRunning) { stopAutoRun(); return; } try { const armIndex = selectArm(); pullArm(armIndex); } catch (error) { console.error("Error during auto-run step:", error); stopAutoRun(); alert("An error occurred during auto-run. Check console."); } pullsCompleted++; }, AUTO_RUN_INTERVAL_MS); }
-        function stopAutoRun() { if (state.autoRunInterval) { clearInterval(state.autoRunInterval); state.autoRunInterval = null; console.log("Auto-run stopped."); updateCharts(); } state.isRunning = false; setControlsEnabled(true); autoRunBtn.textContent = 'Auto-Run'; }
-        autoRunBtn.addEventListener('click', () => { if (state.isRunning) stopAutoRun(); else startAutoRun(); });
+  const handleReset=useCallback(()=>{setPhase('landing');setRun(null);setSelectedNode(null);},[]);
 
-        // --- UI Updates --- (Add updateSelectionSummary)
-        function renderBandits() { banditContainer.innerHTML = ''; state.bandits.forEach((bandit, index) => { const card = document.createElement('div'); card.className = 'bandit-card'; card.innerHTML = ` <div class="bandit-header">Bandit ${index + 1}</div> <div class="bandit-body"> <div class="bandit-stats"> <div class="stat">Pulls: <span class="stat-value" id="pulls-${index}">0</span></div> <div class="stat">Avg Reward: <span class="stat-value" id="avg-reward-${index}">0.000</span></div> <div class="stat">Est. Value: <span class="stat-value" id="est-value-${index}">0.000</span></div> </div> <button class="bandit-action" data-index="${index}" ${state.isRunning ? 'disabled' : ''}>Pull Arm</button> </div> `; banditContainer.appendChild(card); card.querySelector('.bandit-action').addEventListener('click', (e) => { if (state.isRunning) return; const armIndex = parseInt(e.target.dataset.index); if (typeof gtag === 'function') { gtag('event', 'manual_pull', { 'event_category': 'SimulationControl', 'bandit_index': armIndex + 1, 'algorithm': algorithmSelect.value }); } pullArm(armIndex); }); }); setControlsEnabled(!state.isRunning); }
-        function updateBanditStats(index) { const pullEl = document.getElementById(`pulls-${index}`); const avgRewardEl = document.getElementById(`avg-reward-${index}`); const estValueEl = document.getElementById(`est-value-${index}`); if (pullEl) pullEl.textContent = state.bandits[index]?.pulls ?? 'N/A'; if (avgRewardEl) avgRewardEl.textContent = state.bandits[index]?.averageReward?.toFixed(3) ?? 'N/A'; if (estValueEl) estValueEl.textContent = state.estimatedRewards[index]?.toFixed(3) ?? 'N/A'; }
-        function updateResults() { totalRewardDisplay.textContent = state.totalReward.toFixed(2); const avgReward = state.totalPulls > 0 ? state.totalReward / state.totalPulls : 0; avgRewardDisplay.textContent = avgReward.toFixed(3); const optimalPercent = state.totalPulls > 0 ? (state.optimalActions / state.totalPulls) * 100 : 0; optimalPercentDisplay.textContent = `${optimalPercent.toFixed(1)}%`; cumulativeRegretDisplay.textContent = Math.max(0, state.cumulativeRegret).toFixed(2); if (finalAvgRewardSpan) { finalAvgRewardSpan.textContent = avgReward.toFixed(3); } }
-        function addLogEntry(armIndex, reward) { const logEntry = document.createElement('div'); logEntry.className = 'log-entry'; const now = new Date(); const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`; logEntry.innerHTML = `<span class="log-time">[${timeString}]</span> <span class="log-action">Pull ${armIndex + 1}:</span> <span class="log-result"> R=</span><span class="log-reward ${reward >= 0 ? 'log-positive' : 'log-negative'}">${reward.toFixed(3)}</span> <span class="log-result">(Avg: ${state.estimatedRewards[armIndex]?.toFixed(3) ?? 'N/A'})</span>`; actionLog.insertBefore(logEntry, actionLog.firstChild); if (actionLog.children.length > MAX_LOG_ENTRIES) { actionLog.removeChild(actionLog.lastChild); } }
+  const handleChoose=useCallback(ai=>{
+    if(!run||phase!=='running')return;
+    const sc=run.scenario,si=run.stepIdx,step=safeStep(sc,si);if(!step)return;
+    const sb=dc(run.cur);
+    const res=applyAction(sc,si,ai,sb);if(!res)return;
+    const bestR=bestImmediate(sc,si,sb);
+    const regret=Math.max(0,+(bestR-res.reward).toFixed(4));
+    const agRec=agentPolicy(run.qtable,sc,si,sb);
+    const agAct=agRec!==null&&step.actions[agRec]?step.actions[agRec].label:'N/A';
+    const qRes=updateQ(run.qtable,sc,si,ai,sb,res.newState,res.reward);
+    let altIdx=null,altR=-Infinity;
+    step.actions.forEach((_,i)=>{if(i===ai)return;const ar=applyAction(sc,si,i,sb);if(ar&&ar.reward>altR){altR=ar.reward;altIdx=i;}});
+    const newRun={...run,cur:res.newState,stepIdx:si+1,totalReward:run.totalReward+res.reward,totalRegret:run.totalRegret+regret,
+      graphNodes:[...run.graphNodes,{chosenIdx:ai,agentIdx:agRec,altIdx,
+        chosenLabel:step.actions[ai].label,
+        agentLabel:agRec!==null&&step.actions[agRec]?step.actions[agRec].label:'',
+        altLabel:altIdx!==null?step.actions[altIdx].label:'',
+        reward:res.reward,regret,effects:res.effects}],
+      history:[...run.history,{stepTitle:step.title,actionLabel:step.actions[ai].label,reward:res.reward,regret}],
+      latestFb:{chosenAction:step.actions[ai].label,reward:res.reward,regret,agentAction:agAct,oldQ:qRes.oldQ,newQ:qRes.newQ,qKey:qRes.key}};
+    setRun(newRun);
+    if(si+1>=sc.steps.length){setPhase('complete');setSelectedNode('final');}
+  },[run,phase]);
 
-        // --- New Function: Update Selection Summary ---
-        function updateSelectionSummary() {
-            if (!selectionSummaryDisplay) return; // Exit if element doesn't exist
+  return(
+    <div style={{background:P.bg,minHeight:'100vh',color:P.text,fontFamily:SANS,fontSize:14,lineHeight:1.6}}>
+      {phase==='landing'
+        ?<Landing selectedId={selectedId} onSelect={setSelectedId} onStart={handleStart}/>
+        :<Workspace run={run} phase={phase} selectedNode={selectedNode} onChoose={handleChoose} onReset={handleReset} onNodeClick={setSelectedNode}/>}
+    </div>
+  );
+}
 
-            const totalPulls = state.totalPulls;
-            let winnerText = "None";
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 
-            if (totalPulls > 0 && state.counts.length > 0) {
-                const winningIndex = argmax(state.counts);
-                if (winningIndex !== -1 && state.counts[winningIndex] > 0) {
-                    const winningCount = state.counts[winningIndex];
-                    winnerText = `Bandit ${winningIndex + 1} (<span class="value">${winningCount}</span> pulls)`;
-                }
-            }
-
-            selectionSummaryDisplay.innerHTML = `
-                Total Pulls: <span class="value">${totalPulls}</span>
-                <span class="separator">|</span>
-                Winning Bandit: ${winnerText}
-            `;
-        }
-
-        // --- Charting --- (Disable legend for selection chart, call summary update)
-        function initializeCharts() {
-            ['rewardsChart', 'selectionChart', 'regretChart'].forEach(chartName => { if (state[chartName]?.destroy) { try { state[chartName].destroy(); } catch (e) { console.error(`Error destroying ${chartName}:`, e); } } state[chartName] = null; });
-            const numBandits = state.bandits.length; if (numBandits === 0) { console.warn("Init charts: 0 bandits."); return; }
-            const labels = Array.from({ length: numBandits }, (_, i) => `Bandit ${i + 1}`); const backgroundColors = labels.map((_, i) => `hsl(${i * (360 / numBandits)}, 70%, 60%)`);
-            const currentTheme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
-            const computedStyle = getComputedStyle(document.body);
-            const initialGridColor = currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-            const initialLabelColor = (currentTheme === 'dark' ? computedStyle.getPropertyValue('--dark-text-secondary').trim() : computedStyle.getPropertyValue('--gray').trim()) || (currentTheme === 'dark' ? '#9ca3af' : '#6b7280');
-            const initialTitleColor = (currentTheme === 'dark' ? computedStyle.getPropertyValue('--dark-text').trim() : computedStyle.getPropertyValue('--primary-dark').trim()) || (currentTheme === 'dark' ? '#f9fafb' : '#15803d');
-
-            const commonChartOptions = {
-                 responsive: true, maintainAspectRatio: false, animation: { duration: 0 },
-                 scales: {
-                     x: { type: 'linear', display: true, grid: { color: initialGridColor, borderColor: initialGridColor }, ticks: { color: initialLabelColor, maxTicksLimit: 10, autoSkip: true, }, title: { display: true, text: 'Time Steps (Pulls)', color: initialTitleColor } },
-                     y: { display: true, grid: { color: initialGridColor, borderColor: initialGridColor }, ticks: { color: initialLabelColor }, title: { display: true, color: initialTitleColor } }
-                 },
-                 plugins: { legend: { labels: { color: initialLabelColor } } }
-             };
-             const selectionChartOptions = Chart.helpers.merge({}, [commonChartOptions, {
-                 scales: { x: { type: 'category', title: { text: 'Bandit' } }, y: { title: { text: 'Count' }, beginAtZero: true } },
-                 plugins: { legend: { display: false } } // <<< Hide the default legend
-             }]);
-
-            try { const rewardsCtx = document.getElementById('rewards-chart').getContext('2d'); state.rewardsChart = new Chart(rewardsCtx, { type: 'line', data: { labels: [0], datasets: [{ label: 'Average Reward', data: [0], borderColor: 'rgb(75, 192, 192)', backgroundColor: 'rgba(75, 192, 192, 0.5)', tension: 0.1, pointRadius: 0, borderWidth: 2 }] }, options: Chart.helpers.merge({}, [commonChartOptions, { scales: { y: { title: { text: 'Average Reward' }, beginAtZero: false } } }]) }); } catch (e) { console.error("Error initializing rewards chart:", e); }
-            try { const selectionCtx = document.getElementById('selection-chart').getContext('2d'); state.selectionChart = new Chart(selectionCtx, { type: 'bar', data: { labels: labels, datasets: [{ label: 'Number of Pulls', data: Array(numBandits).fill(0), backgroundColor: backgroundColors }] }, options: selectionChartOptions }); } catch (e) { console.error("Error initializing selection chart:", e); } // Use specific options
-            const regretCanvas = document.getElementById('regret-chart'); if (regretCanvas) { try { const regretCtx = regretCanvas.getContext('2d'); state.regretChart = new Chart(regretCtx, { type: 'line', data: { labels: [0], datasets: [{ label: 'Cumulative Regret', data: [0], borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.5)', tension: 0.1, pointRadius: 0, borderWidth: 2 }] }, options: Chart.helpers.merge({}, [commonChartOptions, { scales: { y: { title: { text: 'Cumulative Regret' }, beginAtZero: true } } }]) }); } catch (e) { console.error("Error initializing regret chart:", e); } }
-            applyTheme(currentTheme); // Apply styles
-            updateSelectionSummary(); // Initial summary update
-        }
-
-        // --- Update Charts --- (Call summary update)
-        function updateCharts() {
-             if (!state.rewardsChart || !state.selectionChart) { return; }
-             try {
-                 const currentPull = state.totalPulls;
-                 if (currentPull === 0 && state.regretHistory.length <= 1 && state.rewardsHistory.length <=1) { return; }
-                 const avgReward = currentPull > 0 ? state.totalReward / currentPull : 0;
-
-                 if (state.rewardsChart) { addDataPoint(state.rewardsChart, currentPull, avgReward, MAX_CHART_POINTS); }
-                 if (state.selectionChart?.data?.datasets?.[0]) { state.selectionChart.data.datasets[0].data = [...state.counts]; state.selectionChart.update('none'); } else { console.warn("[updateCharts] Selection chart structure invalid."); }
-                 if (state.regretChart && state.regretHistory.length > currentPull) { const currentRegret = state.regretHistory[currentPull] ?? state.regretHistory[state.regretHistory.length - 1] ?? 0; addDataPoint(state.regretChart, currentPull, currentRegret, MAX_CHART_POINTS); }
-
-                 updateSelectionSummary(); // <<< Update the summary text
-             } catch (chartUpdateError) { console.error(`Error during chart update @ pull ${state.totalPulls}:`, chartUpdateError); }
-        }
-
-        // --- Add Data Point --- (Unchanged)
-        function addDataPoint(chart, label, data, maxPoints) { try { if (!chart || !chart.data || !chart.data.labels || !chart.data.datasets || !chart.data.datasets[0]) { console.warn(`Chart data structure invalid for chart: ${chart?.canvas?.id}`); return; } const validData = typeof data === 'number' && isFinite(data) ? data : 0; while (chart.data.labels.length >= maxPoints) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); } chart.data.labels.push(label); chart.data.datasets[0].data.push(validData); chart.update('none'); } catch (e) { console.error(`Error adding data point to chart: ${chart?.canvas?.id}`, e, { label, data }); } }
-
-        // --- Initialization --- (Apply initial theme correctly)
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log("DOM Content Loaded.");
-            // Theme is applied via inline script in head now
-            const currentTheme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
-            applyTheme(currentTheme); // Call applyTheme to set button text etc.
-
-            checkConsent();
-
-            initializeBtn.addEventListener('click', () => {
-                if (state.isRunning) return;
-                 resetSimulationState();
-                 try {
-                     const numBandits = parseInt(numBanditsInput.value); const rewardVariance = parseFloat(rewardVarianceInput.value); const algorithm = algorithmSelect.value;
-                     if (isNaN(numBandits) || numBandits < 2 || numBandits > 20) { alert('Number of bandits must be between 2 and 20.'); return; }
-                     if (isNaN(rewardVariance) || rewardVariance <= 0) { alert('Reward SD must be greater than 0.'); return; }
-                     if (typeof gtag === 'function') { gtag('event', 'initialize_simulation', { 'event_category': 'SimulationSetup', 'num_bandits': numBandits, 'reward_variance': rewardVariance, 'algorithm': algorithm }); }
-                     initializeBandits(numBandits, rewardVariance); renderBandits(); initializeCharts(); resultsPanel.classList.remove('hidden'); chartsContainer.classList.remove('hidden'); updateResults(); updateCharts();
-                 } catch (initError) { console.error("Initialization failed:", initError); alert("Initialization failed. Check console."); resetSimulationState(); }
-             });
-
-            resetBtn.addEventListener('click', () => { if (!state.isRunning) resetSimulationState(); });
-
-            algorithmSelect.addEventListener('change', () => {
-                 const algorithm = algorithmSelect.value;
-                 document.querySelector('.epsilon-param').classList.toggle('hidden', algorithm !== 'epsilon-greedy');
-                 document.querySelector('.ucb-param').classList.toggle('hidden', algorithm !== 'ucb');
-                  if (typeof gtag === 'function' && state.bandits.length > 0) { gtag('event', 'change_algorithm', { 'event_category': 'SimulationSetup', 'selected_algorithm': algorithm }); }
-                 setControlsEnabled(!state.isRunning);
-            });
-
-            algorithmSelect.dispatchEvent(new Event('change'));
-            setControlsEnabled(true);
-            console.log("Initialization complete.");
-        });
-
-    </script>
+</script>
 </body>
 </html>
