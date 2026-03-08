@@ -5,31 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>RL Branch Explorer</title>
 
-<!-- Google Analytics (GA4) - REPLACE 'YOUR_GA4_MEASUREMENT_ID' -->
-    <script>
-      // Define default consent settings BEFORE loading gtag or configuring GA4
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-
-      gtag('consent', 'default', {
-        'analytics_storage': 'denied', // Deny analytics tracking by default
-        'ad_storage': 'denied',        // Other common consent types
-        'ad_user_data': 'denied',
-        'ad_personalization': 'denied',
-        'wait_for_update': 500        // Milliseconds to wait for consent update before sending initial hits
-      });
-      // Load gtag.js asynchronously
-      (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtag.start':
-      new Date().getTime(),event:'gtag.js'});var f=d.getElementsByTagName(s)[0],
-      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-      'https://www.googletagmanager.com/gtag/js?id='+i+dl;f.parentNode.insertBefore(j,f);
-      })(window,document,'script','dataLayer','G-45CCWT6XS1'); // <<< REPLACE THIS ID!
-      // Initial configuration call (will respect default consent)
-      gtag('js', new Date());
-      gtag('config', 'G-45CCWT6XS1'); // <<< REPLACE THIS ID!
-    </script>
-    <!-- End Google Analytics -->
-
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-45CCWT6XS1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-45CCWT6XS1');
+</script>
   
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -1045,4 +1027,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
 </html>
+
 
